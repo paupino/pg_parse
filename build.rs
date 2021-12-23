@@ -306,7 +306,7 @@ fn make_nodes(
     node_types: &HashSet<String>,
     type_resolver: &TypeResolver,
 ) -> std::io::Result<()> {
-    const SECTIONS: [&str; 3] = ["nodes/parsenodes", "nodes/primnodes", "nodes/pg_list", ];
+    const SECTIONS: [&str; 3] = ["nodes/parsenodes", "nodes/primnodes", "nodes/pg_list"];
 
     writeln!(out, "#[derive(Debug, serde::Deserialize)]")?;
     writeln!(out, "pub enum Node {{")?;

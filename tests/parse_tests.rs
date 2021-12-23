@@ -1,4 +1,4 @@
-use pg_query::ast::{Node, InsertStmt, List, ParamRef, SelectStmt};
+use pg_query::ast::{InsertStmt, List, Node, ParamRef, SelectStmt};
 
 #[test]
 fn it_can_generate_a_create_index_ast() {
@@ -66,13 +66,13 @@ fn it_can_parse_lists_of_values() {
 
     match el {
         Node::InsertStmt(InsertStmt {
-                             select_stmt: Some(select_stmt),
-                             ..
-                         }) => match select_stmt.as_ref() {
+            select_stmt: Some(select_stmt),
+            ..
+        }) => match select_stmt.as_ref() {
             Node::SelectStmt(SelectStmt {
-                                 values_lists: Some(values_lists),
-                                 ..
-                             }) => {
+                values_lists: Some(values_lists),
+                ..
+            }) => {
                 let values = &values_lists[0];
 
                 match values {
