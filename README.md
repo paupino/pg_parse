@@ -19,7 +19,7 @@ Add the following to your `Cargo.toml`
 
 ```toml
 [dependencies]
-pg_query = "0.1"
+pg_query = "0.2"
 ```
 
 ## Example: Parsing a query
