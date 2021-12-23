@@ -1,4 +1,4 @@
-use pg_query::ast::Node;
+use pg_query::ast::{Node, InsertStmt, List, ParamRef, SelectStmt};
 
 #[test]
 fn it_can_generate_a_create_index_ast() {
@@ -55,4 +55,47 @@ fn it_will_error_on_invalid_input() {
         result.err().unwrap(),
         pg_query::Error::ParseError("syntax error at or near \"RANDOM\"".into())
     );
+}
+
+#[test]
+fn it_can_parse_lists_of_values() {
+    let result = pg_query::parse("INSERT INTO contacts.person(name, ssn) VALUES ($1, $2)");
+    assert!(result.is_ok());
+    let result = result.unwrap();
+    let el: &Node = &result[0];
+
+    match el {
+        Node::InsertStmt(InsertStmt {
+                             select_stmt: Some(select_stmt),
+                             ..
+                         }) => match select_stmt.as_ref() {
+            Node::SelectStmt(SelectStmt {
+                                 values_lists: Some(values_lists),
+                                 ..
+                             }) => {
+                let values = &values_lists[0];
+
+                match values {
+                    Node::List(List { items }) => {
+                        assert_eq!(2, items.len(), "Items length");
+
+                        for (index, item) in items.iter().enumerate() {
+                            match item {
+                                Node::ParamRef(ParamRef { number, .. }) => {
+                                    // postgres params indices start at 1
+                                    let expected = index + 1;
+
+                                    assert_eq!(expected, *number as usize, "Param number");
+                                }
+                                node => panic!("Unexpected type {:#?}", &node),
+                            }
+                        }
+                    }
+                    node => panic!("Unexpected type {:#?}", &node),
+                }
+            }
+            node => panic!("Unexpected type {:#?}", &node),
+        },
+        node => panic!("Unexpected type {:#?}", &node),
+    }
 }
