@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 
-use convert_case::{Case, Casing};
+use heck::ToSnakeCase;
 
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -306,7 +306,7 @@ fn make_nodes(
     node_types: &HashSet<String>,
     type_resolver: &TypeResolver,
 ) -> std::io::Result<()> {
-    const SECTIONS: [&str; 2] = ["nodes/parsenodes", "nodes/primnodes"];
+    const SECTIONS: [&str; 3] = ["nodes/parsenodes", "nodes/primnodes", "nodes/pg_list", ];
 
     writeln!(out, "#[derive(Debug, serde::Deserialize)]")?;
     writeln!(out, "pub enum Node {{")?;
@@ -398,7 +398,7 @@ fn make_nodes(
                     writeln!(out, "    pub {}_: {},", name, type_resolver.resolve(c_type))?;
                 } else {
                     // Figure out what the snake case version of the name is
-                    let cleaned = name.to_case(Case::Snake);
+                    let cleaned = name.to_snake_case();
                     if cleaned.eq(name) {
                         if type_resolver.is_primitive(c_type) {
                             writeln!(out, "    #[serde(default)]",)?;
@@ -478,6 +478,7 @@ impl TypeResolver {
 
         // Similar to primitives
         primitive.insert("List*", "Option<Vec<Node>>");
+        primitive.insert("[]Node", "Vec<Node>");
         primitive.insert("Node*", "Option<Box<Node>>");
         primitive.insert("Expr*", "Option<Box<Node>>");
 
