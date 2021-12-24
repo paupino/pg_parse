@@ -11,13 +11,10 @@ pub type bits32 = u32;
 include!(concat!(env!("OUT_DIR"), "/ast.rs"));
 
 #[derive(Debug, serde::Deserialize)]
-pub struct Value {}
-/*
-    NodeTag		type;			/* tag appropriately (eg. T_String) */
-    union ValUnion
-{
-    int			ival;		/* machine integer */
-    char	   *str;		/* string */
-}			val;
-} Value
-*/
+pub struct Value(pub Node);
+
+impl Value {
+    pub fn inner(&self) -> &Node {
+        &self.0
+    }
+}
