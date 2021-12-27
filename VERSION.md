@@ -1,3 +1,7 @@
+# Version 0.4.0
+
+Updates `libpg_query` dependency to [`13-2.1.0`](https://github.com/pganalyze/libpg_query/tree/13-2.1.0).
+
 # Version 0.3.0
 
 * Fixes `Value` parsing in some situations such as for `typemod`
