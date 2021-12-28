@@ -274,7 +274,10 @@ fn make_enums(
         map.sort_by_key(|x| x.0);
 
         for (name, def) in map {
-            writeln!(out, "#[derive(Debug, serde::Deserialize)]")?;
+            writeln!(
+                out,
+                "#[derive(Copy, Clone, Eq, PartialEq, Debug, serde::Deserialize)]"
+            )?;
             writeln!(out, "pub enum {} {{", name)?;
             // This enum has duplicate values - I don't think these are really necessary
             let ignore_value = name.eq("PartitionRangeDatumKind");
@@ -341,7 +344,7 @@ fn make_nodes(
 
     for (name, def) in values {
         if def.fields.is_empty() {
-            writeln!(out, "    {},", name)?;
+            writeln!(out, "    {} {{ }},", name)?;
             continue;
         }
         // Only one
