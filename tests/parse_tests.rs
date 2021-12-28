@@ -1,4 +1,4 @@
-use pg_query::ast::{InsertStmt, List, Node, ParamRef, SelectStmt};
+use pg_query::ast::{A_Const, ConstrType, InsertStmt, List, Node, ParamRef, SelectStmt, Value};
 
 #[test]
 fn it_can_generate_a_create_index_ast() {
@@ -149,5 +149,67 @@ fn it_can_parse_lists_of_values() {
             node => panic!("Unexpected type {:#?}", &node),
         },
         node => panic!("Unexpected type {:#?}", &node),
+    }
+}
+
+#[test]
+fn it_can_parse_a_table_of_defaults() {
+    let result = pg_query::parse(
+        "CREATE TABLE default_values
+(
+    id       serial        NOT NULL PRIMARY KEY,
+    ival     int           NOT NULL DEFAULT(1),
+    bval     boolean       NOT NULL DEFAULT(TRUE),
+    sval     text          NOT NULL DEFAULT('hello'),
+    mval     numeric(10,2) NOT NULL DEFAULT(5.12),
+    nval     int           NULL DEFAULT(NULL)
+);",
+    );
+    assert!(result.is_ok());
+    let result = result.unwrap();
+    let el: &Node = &result[0];
+    match *el {
+        Node::CreateStmt(ref stmt) => {
+            let relation = stmt.relation.as_ref().expect("relation exists");
+            assert_eq!(relation.schemaname, None, "schemaname");
+            assert_eq!(
+                relation.relname,
+                Some("default_values".to_string()),
+                "relname"
+            );
+            let columns = stmt.table_elts.as_ref().expect("columns");
+            assert_eq!(6, columns.len(), "Columns length");
+            let nval = &columns[5];
+            let column = match nval {
+                Node::ColumnDef(def) => def,
+                _ => panic!("Unexpected column type"),
+            };
+            assert_eq!(column.colname, Some("nval".into()));
+            assert!(column.constraints.is_some());
+            let constraints = column.constraints.as_ref().unwrap();
+            assert_eq!(2, constraints.len(), "constraint #");
+            let c1 = match &constraints[0] {
+                Node::Constraint(c) => c,
+                _ => panic!("Unexpected constraint type"),
+            };
+            let c2 = match &constraints[1] {
+                Node::Constraint(c) => c,
+                _ => panic!("Unexpected constraint type"),
+            };
+            assert_eq!(*c1.contype, ConstrType::CONSTR_NULL);
+            assert_eq!(*c2.contype, ConstrType::CONSTR_DEFAULT);
+            assert!(c2.raw_expr.is_some());
+            let raw_expr = c2.raw_expr.as_ref().unwrap();
+            let a_const = match **raw_expr {
+                Node::A_Const(ref a) => a,
+                _ => panic!("Expected constant"),
+            };
+            assert!(
+                matches!(*a_const.val, Value(Node::Null {})),
+                "{:?}",
+                a_const
+            )
+        }
+        _ => panic!("Unexpected type"),
     }
 }
