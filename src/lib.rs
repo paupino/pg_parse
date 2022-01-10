@@ -19,7 +19,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! pg_query = "0.5"
+//! pg_query = "0.6"
 //! ```
 //!
 //! # Example: Parsing a query
@@ -39,6 +39,7 @@ pub mod ast;
 mod bindings;
 mod error;
 mod query;
+mod serde;
 
 pub use error::*;
 pub use query::*;
