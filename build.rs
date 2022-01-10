@@ -387,45 +387,41 @@ fn make_nodes(
                     continue;
                 }
 
-                if is_reserved(&name) {
-                    writeln!(
-                        out,
-                        "    #[serde(rename = \"{}\"{})]",
-                        name,
-                        if type_resolver.is_primitive(c_type) {
-                            ", default"
-                        } else {
-                            ""
-                        }
-                    )?;
-                    writeln!(out, "    pub {}_: {},", name, type_resolver.resolve(c_type))?;
+                // Extract everything needed to build the serde types
+                let variable_name = if is_reserved(name) {
+                    format!("{}_", name)
                 } else {
-                    // Figure out what the snake case version of the name is
-                    let cleaned = name.to_snake_case();
-                    if cleaned.eq(name) {
-                        if type_resolver.is_primitive(c_type) {
-                            writeln!(out, "    #[serde(default)]",)?;
-                        }
-                        writeln!(out, "    pub {}: {},", name, type_resolver.resolve(c_type))?;
-                    } else {
-                        writeln!(
-                            out,
-                            "    #[serde(rename = \"{}\"{})]",
-                            name,
-                            if type_resolver.is_primitive(c_type) {
-                                ", default"
-                            } else {
-                                ""
-                            }
-                        )?;
-                        writeln!(
-                            out,
-                            "    pub {}: {},",
-                            cleaned,
-                            type_resolver.resolve(c_type)
-                        )?;
-                    }
+                    name.to_snake_case()
+                };
+                write!(out, "    #[serde(")?;
+                let mut has_data = false;
+                if variable_name.ne(name) {
+                    write!(out, "rename = \"{}\"", name)?;
+                    has_data = true;
                 }
+                if let Some((deserializer, optional)) = TypeResolver::custom_deserializer(c_type) {
+                    if has_data {
+                        write!(out, ", ")?;
+                    }
+                    write!(
+                        out,
+                        "deserialize_with = \"{}\"{}",
+                        deserializer,
+                        if optional { ", default" } else { "" }
+                    )?;
+                } else if type_resolver.is_primitive(c_type) {
+                    if has_data {
+                        write!(out, ", ")?;
+                    }
+                    write!(out, "default")?;
+                }
+                writeln!(out, ")]")?;
+                writeln!(
+                    out,
+                    "    pub {}: {},",
+                    variable_name,
+                    type_resolver.resolve(c_type)
+                )?;
             }
 
             writeln!(out, "}}")?;
@@ -520,6 +516,14 @@ impl TypeResolver {
 
     pub fn is_primitive(&self, ty: &str) -> bool {
         self.primitive.contains_key(ty) || self.aliases.get(ty).copied().unwrap_or_default()
+    }
+
+    pub fn custom_deserializer(ty: &str) -> Option<(&str, bool)> {
+        match ty {
+            "[]Node" => Some(("crate::serde::deserialize_node_array", false)),
+            "List*" => Some(("crate::serde::deserialize_node_array_opt", true)),
+            _ => None,
+        }
     }
 
     pub fn resolve(&self, c_type: &str) -> String {

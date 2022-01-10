@@ -6,6 +6,7 @@ use crate::error::*;
 
 #[derive(Debug, serde::Deserialize)]
 struct ParseResult {
+    #[allow(unused)]
     version: u32,
     stmts: Vec<Stmt>,
 }
@@ -13,6 +14,7 @@ struct ParseResult {
 #[derive(Debug, serde::Deserialize)]
 struct Stmt {
     stmt: crate::ast::Node,
+    #[allow(unused)]
     stmt_len: Option<u32>,
 }
 
