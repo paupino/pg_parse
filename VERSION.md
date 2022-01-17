@@ -1,3 +1,7 @@
+# Next
+
+* Remove `Expr` from generated output since it is a generic superclass.
+
 # Version 0.6.0
 
 Fixes issue when parsing some statements that would contain trailing null objects in an array. Deserialization of these

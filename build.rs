@@ -310,6 +310,9 @@ fn make_nodes(
     type_resolver: &TypeResolver,
 ) -> std::io::Result<()> {
     const SECTIONS: [&str; 3] = ["nodes/parsenodes", "nodes/primnodes", "nodes/pg_list"];
+    const IGNORE: [&str; 1] = [
+        "Expr", // Generic Superclass - never constructed directly.
+    ];
 
     writeln!(out, "#[derive(Debug, serde::Deserialize)]")?;
     writeln!(out, "pub enum Node {{")?;
@@ -320,6 +323,10 @@ fn make_nodes(
         map.sort_by_key(|x| x.0);
 
         for (name, def) in map {
+            if IGNORE.iter().any(|x| name.eq(x)) {
+                continue;
+            }
+
             // Only generate node types
             if !node_types.contains(name) {
                 // We panic here since all structs are nodes for our purposes
@@ -372,6 +379,10 @@ fn make_nodes(
         map.sort_by_key(|x| x.0);
 
         for (name, def) in map {
+            if IGNORE.iter().any(|x| name.eq(x)) {
+                continue;
+            }
+
             writeln!(out)?;
             writeln!(out, "#[derive(Debug, serde::Deserialize)]")?;
             writeln!(out, "pub struct {} {{", name)?;
