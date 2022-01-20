@@ -11,7 +11,7 @@ pg_parse &emsp; [![Build Status]][actions] [![Latest Version]][crates.io] [![Doc
 PostgreSQL parser for Rust that uses the [actual PostgreSQL server source]((https://github.com/pganalyze/libpg_query)) to parse 
 SQL queries and return the internal PostgreSQL parse tree.
 
-## What's the difference between pg_parse vs pg_query.rs?
+## What's the difference between pg_parse and pg_query.rs?
 
 The [`pganalyze`](https://github.com/pganalyze/) organization will maintain the official implementation called `pg_query.rs`. This
 closely resembles the name of the C library also published by the team (`libpg_query`). This implementation will use the protobuf 
