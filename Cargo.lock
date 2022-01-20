@@ -296,8 +296,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
-name = "pg_query"
-version = "0.6.0"
+name = "pg_parse"
+version = "0.7.0"
 dependencies = [
  "bindgen",
  "clippy",

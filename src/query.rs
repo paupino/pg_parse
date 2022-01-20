@@ -30,9 +30,9 @@ pub struct Fingerprint {
 /// # Example
 ///
 /// ```rust
-/// use pg_query::ast::Node;
+/// use pg_parse::ast::Node;
 ///
-/// let result = pg_query::parse("SELECT * FROM contacts");
+/// let result = pg_parse::parse("SELECT * FROM contacts");
 /// assert!(result.is_ok());
 /// let result = result.unwrap();
 /// let el: &Node = &result[0];
@@ -65,7 +65,7 @@ pub fn parse(stmt: &str) -> Result<Vec<crate::ast::Node>> {
 /// # Example
 ///
 /// ```rust
-/// let result = pg_query::normalize("SELECT * FROM contacts WHERE name='Paul'");
+/// let result = pg_parse::normalize("SELECT * FROM contacts WHERE name='Paul'");
 /// assert!(result.is_ok());
 /// let result = result.unwrap();
 /// assert_eq!(result, "SELECT * FROM contacts WHERE name=$1");
@@ -97,7 +97,7 @@ pub fn normalize(stmt: &str) -> Result<String> {
 /// # Example
 ///
 /// ```rust
-/// let result = pg_query::fingerprint("SELECT * FROM contacts WHERE name='Paul'");
+/// let result = pg_parse::fingerprint("SELECT * FROM contacts WHERE name='Paul'");
 /// assert!(result.is_ok());
 /// let result = result.unwrap();
 /// assert_eq!(result.hex, "0e2581a461ece536");
@@ -131,7 +131,7 @@ pub fn fingerprint(stmt: &str) -> Result<Fingerprint> {
 /// # Example
 ///
 /// ```rust
-/// let result = pg_query::parse_plpgsql(
+/// let result = pg_parse::parse_plpgsql(
 ///         " \
 ///         CREATE OR REPLACE FUNCTION cs_fmt_browser_version(v_name varchar, v_version varchar) \
 ///         RETURNS varchar AS $$ \

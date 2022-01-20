@@ -1,6 +1,6 @@
 #[test]
 fn it_can_parse_a_simple_function() {
-    let result = pg_query::parse_plpgsql(
+    let result = pg_parse::parse_plpgsql(
         " \
         CREATE OR REPLACE FUNCTION cs_fmt_browser_version(v_name varchar, v_version varchar) \
         RETURNS varchar AS $$ \
@@ -20,10 +20,10 @@ fn it_can_parse_a_simple_function() {
 
 #[test]
 fn it_will_error_on_invalid_input() {
-    let result = pg_query::parse_plpgsql("CREATE RANDOM ix_test ON contacts.person;");
+    let result = pg_parse::parse_plpgsql("CREATE RANDOM ix_test ON contacts.person;");
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),
-        pg_query::Error::ParseError("syntax error at or near \"RANDOM\"".into())
+        pg_parse::Error::ParseError("syntax error at or near \"RANDOM\"".into())
     );
 }

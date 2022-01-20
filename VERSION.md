@@ -1,4 +1,7 @@
-# Next
+# Version 0.7.0
+
+Renamed project from `pg_query.rs` to `pg_parse`. Going forward the `pganalyze` team will maintain the official fork
+leveraging protobuf whereas this library will continue to use the JSON subsystem.
 
 * Remove `Expr` from generated output since it is a generic superclass.
 

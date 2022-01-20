@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-/// Error structure representing the basic error scenarios for `pg_query`.
+/// Error structure representing the basic error scenarios for `pg_parse`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Error {
     ParseError(String),
@@ -20,5 +20,5 @@ impl Display for Error {
 
 impl std::error::Error for Error {}
 
-/// Convenient Result alias for returning `pg_query::Error`.
+/// Convenient Result alias for returning `pg_parse::Error`.
 pub type Result<T> = core::result::Result<T, Error>;

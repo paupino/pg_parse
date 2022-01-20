@@ -1,9 +1,9 @@
-use pg_query::ast::{ConstrType, InsertStmt, List, Node, ParamRef, SelectStmt, Value};
+use pg_parse::ast::{ConstrType, InsertStmt, List, Node, ParamRef, SelectStmt, Value};
 
 #[test]
 fn it_can_generate_a_create_index_ast() {
     let result =
-        pg_query::parse("CREATE INDEX ix_test ON contacts.person (id, ssn) WHERE ssn IS NOT NULL;");
+        pg_parse::parse("CREATE INDEX ix_test ON contacts.person (id, ssn) WHERE ssn IS NOT NULL;");
     assert!(result.is_ok());
     let result = result.unwrap();
     let el: &Node = &result[0];
@@ -27,7 +27,7 @@ fn it_can_generate_a_create_index_ast() {
 #[test]
 fn it_can_generate_a_create_table_ast() {
     let result =
-        pg_query::parse("CREATE TABLE contacts.person(id serial primary key, name text not null, balance numeric(5, 12));");
+        pg_parse::parse("CREATE TABLE contacts.person(id serial primary key, name text not null, balance numeric(5, 12));");
     assert!(result.is_ok());
     let result = result.unwrap();
     let el: &Node = &result[0];
@@ -75,9 +75,9 @@ fn it_can_generate_a_create_table_ast() {
             };
             assert_eq!(mods.len(), 2);
             match &mods[0] {
-                Node::A_Const(pg_query::ast::A_Const { val, .. }) => {
+                Node::A_Const(pg_parse::ast::A_Const { val, .. }) => {
                     let constant = match **val {
-                        pg_query::ast::Value(Node::Integer { value }) => value,
+                        pg_parse::ast::Value(Node::Integer { value }) => value,
                         _ => panic!("Expected value"),
                     };
                     assert_eq!(constant, 5);
@@ -85,9 +85,9 @@ fn it_can_generate_a_create_table_ast() {
                 unexpected => panic!("Unexpected type for mods[0] {:?}", unexpected),
             }
             match &mods[1] {
-                Node::A_Const(pg_query::ast::A_Const { val, .. }) => {
+                Node::A_Const(pg_parse::ast::A_Const { val, .. }) => {
                     let constant = match **val {
-                        pg_query::ast::Value(Node::Integer { value }) => value,
+                        pg_parse::ast::Value(Node::Integer { value }) => value,
                         _ => panic!("Expected value"),
                     };
                     assert_eq!(constant, 12);
@@ -101,17 +101,17 @@ fn it_can_generate_a_create_table_ast() {
 
 #[test]
 fn it_will_error_on_invalid_input() {
-    let result = pg_query::parse("CREATE RANDOM ix_test ON contacts.person;");
+    let result = pg_parse::parse("CREATE RANDOM ix_test ON contacts.person;");
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),
-        pg_query::Error::ParseError("syntax error at or near \"RANDOM\"".into())
+        pg_parse::Error::ParseError("syntax error at or near \"RANDOM\"".into())
     );
 }
 
 #[test]
 fn it_can_parse_lists_of_values() {
-    let result = pg_query::parse("INSERT INTO contacts.person(name, ssn) VALUES ($1, $2)");
+    let result = pg_parse::parse("INSERT INTO contacts.person(name, ssn) VALUES ($1, $2)");
     assert!(result.is_ok());
     let result = result.unwrap();
     let el: &Node = &result[0];
@@ -154,7 +154,7 @@ fn it_can_parse_lists_of_values() {
 
 #[test]
 fn it_can_parse_a_table_of_defaults() {
-    let result = pg_query::parse(
+    let result = pg_parse::parse(
         "CREATE TABLE default_values
 (
     id       serial        NOT NULL PRIMARY KEY,
@@ -218,7 +218,7 @@ fn it_can_parse_a_table_of_defaults() {
 fn it_can_parse_tests() {
     // This is a set of tests inspired by libpg_query that test various situations. The scenario that
     // inspired this was actually SELECT DISTINCT, since it libpg_query it'll return [{}] which doesn't
-    // have enough information to be parsed by pg_query.rs. We no ignore empty array components like this.
+    // have enough information to be parsed by pg_parse. We no ignore empty array components like this.
     const TESTS: [(&str, &str); 26] = [
         ("SELECT 1",
         "[SelectStmt(SelectStmt { distinct_clause: None, into_clause: None, target_list: Some([ResTarget(ResTarget { name: None, indirection: None, val: Some(A_Const(A_Const { val: Value(Integer { value: 1 }), location: 7 })), location: 7 })]), from_clause: None, where_clause: None, group_clause: None, having_clause: None, window_clause: None, values_lists: None, sort_clause: None, limit_offset: None, limit_count: None, limit_option: LIMIT_OPTION_DEFAULT, locking_clause: None, with_clause: None, op: SETOP_NONE, all: false, larg: None, rarg: None })]"),
@@ -277,7 +277,7 @@ fn it_can_parse_tests() {
 
     for (expr, tree) in TESTS {
         println!("{}", expr);
-        let parsed = pg_query::parse(expr);
+        let parsed = pg_parse::parse(expr);
         assert!(parsed.is_ok(), "Failed to parse: {}", expr);
         assert_eq!(format!("{:?}", parsed.unwrap()), tree, "Expr: {}", expr);
     }

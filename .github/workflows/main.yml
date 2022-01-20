@@ -37,7 +37,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      - name: Build pg_query
+      - name: Build pg_parse
         uses: actions-rs/cargo@v1
         with:
           command: build

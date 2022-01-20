@@ -1,14 +1,14 @@
 [package]
-name = "pg_query"
+name = "pg_parse"
 description = "PostgreSQL parser that uses the actual PostgreSQL server source to parse SQL queries and return the internal PostgreSQL parse tree."
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Paul Mason <paul@form1.co.nz>"]
 edition = "2018"
-documentation = "https://docs.rs/pg_query/"
+documentation = "https://docs.rs/pg_parse/"
 build = "build.rs"
 license = "MIT"
 readme = "./README.md"
-repository = "https://github.com/paupino/pg_query"
+repository = "https://github.com/paupino/pg_parse"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
