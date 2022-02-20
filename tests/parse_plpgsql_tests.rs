@@ -14,7 +14,7 @@ fn it_can_parse_a_simple_function() {
     );
     assert!(result.is_ok());
     let result = result.unwrap();
-    let expected = include_str!("data/simple_plpgsql.json");
+    let expected = include_str!("data/tree/simple_plpgsql.json");
     assert_eq!(serde_json::to_string_pretty(&result).unwrap(), expected);
 }
 

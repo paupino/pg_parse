@@ -220,7 +220,6 @@ fn make_aliases(
     ];
 
     for def in type_defs {
-        // TODO: Look into what these are actually for
         if IGNORE.iter().any(|e| def.new_type_name.eq(e)) {
             continue;
         }
@@ -313,6 +312,7 @@ fn make_nodes(
     const IGNORE: [&str; 1] = [
         "Expr", // Generic Superclass - never constructed directly.
     ];
+    let mut added = Vec::new();
 
     writeln!(out, "#[derive(Debug, serde::Deserialize)]")?;
     writeln!(out, "pub enum Node {{")?;
@@ -332,6 +332,8 @@ fn make_nodes(
                 // We panic here since all structs are nodes for our purposes
                 panic!("Unexpected struct `{}` (not a node).", name);
             }
+            added.push((name, true));
+
             // If no fields just generate an empty variant
             if def.fields.is_empty() {
                 writeln!(out, "    {},", name)?;
@@ -350,6 +352,7 @@ fn make_nodes(
     values.sort_by_key(|x| x.0);
 
     for (name, def) in values {
+        added.push((name, false));
         if def.fields.is_empty() {
             writeln!(out, "    {} {{ }},", name)?;
             continue;
@@ -439,6 +442,21 @@ fn make_nodes(
         }
     }
 
+    // Generate a helpful "to_string"
+    writeln!(out, "impl Node {{")?;
+    writeln!(out, "    pub fn name(&self) -> &'static str {{")?;
+    writeln!(out, "        match self {{")?;
+    for (variant, is_struct) in added {
+        let modifier = if is_struct { "(_)" } else { "{ .. }" };
+        writeln!(
+            out,
+            "            Node::{variant}{modifier} => \"{variant}\",",
+        )?;
+    }
+    writeln!(out, "        }}")?;
+    writeln!(out, "    }}")?;
+    writeln!(out, "}}")?;
+
     Ok(())
 }
 
@@ -492,8 +510,7 @@ impl TypeResolver {
         primitive.insert("Node*", "Option<Box<Node>>");
         primitive.insert("Expr*", "Option<Box<Node>>");
 
-        // TODO: Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.
-        //       It'll do for now.
+        // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.
         primitive.insert("Bitmapset*", "Option<Vec<u32>>");
 
         TypeResolver {

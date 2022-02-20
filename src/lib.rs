@@ -24,6 +24,9 @@
 //! assert!(result.is_ok());
 //! let result = result.unwrap();
 //! assert!(matches!(*&result[0], Node::SelectStmt(_)));
+//!
+//! // We can also convert back to a string
+//! assert_eq!(result[0].to_string(), "SELECT * FROM contacts");
 //! ```
 //!
 
@@ -33,6 +36,7 @@ mod bindings;
 mod error;
 mod query;
 mod serde;
+mod str;
 
 pub use error::*;
 pub use query::*;

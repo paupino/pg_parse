@@ -29,6 +29,9 @@ let result = pg_parse::parse("SELECT * FROM contacts");
 assert!(result.is_ok());
 let result = result.unwrap();
 assert!(matches!(*&result[0], Node::SelectStmt(_)));
+
+// We can also convert back to a string
+assert_eq!(result[0].to_string(), "SELECT * FROM contacts");
 ```
 
 ## What's the difference between pg_parse and pg_query.rs?
