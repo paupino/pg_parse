@@ -17,7 +17,7 @@ Add the following to your `Cargo.toml`
 
 ```toml
 [dependencies]
-pg_parse = "0.7"
+pg_parse = "0.8"
 ```
 
 ## Example: Parsing a query
