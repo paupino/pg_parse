@@ -1,3 +1,8 @@
+# Version 0.9.1
+
+Modified:
+* Updated `regex` library to remove potential security vulnerability.
+
 # Version 0.9.0
 
 Modified:
