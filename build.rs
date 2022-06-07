@@ -1,6 +1,3 @@
-#![cfg_attr(feature = "clippy", feature(plugin))]
-#![cfg_attr(feature = "clippy", plugin(clippy))]
-
 use heck::ToSnakeCase;
 
 use std::collections::{HashMap, HashSet};

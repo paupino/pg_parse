@@ -60,10 +60,7 @@ impl fmt::Display for Node {
         let mut buffer = String::new();
         match self.build(&mut buffer) {
             Ok(_) => write!(f, "{}", buffer),
-            Err(e) => {
-                eprintln!("{}", e);
-                Err(fmt::Error)
-            }
+            Err(_) => Err(fmt::Error),
         }
     }
 }

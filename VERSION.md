@@ -1,3 +1,14 @@
+# Version 0.9.0
+
+Modified:
+* Updated to latest `libpg_query` version which fixes some memory leaks. 
+* Removed `clippy` build dependency which was subject to a potential security vulnerability.
+
+# Version 0.8.0
+
+New:
+* `to_string` functionality for AST allowing you to turn the parsed tree back into SQL.
+
 # Version 0.7.0
 
 Renamed project from `pg_query.rs` to `pg_parse`. Going forward the `pganalyze` team will maintain the official fork
