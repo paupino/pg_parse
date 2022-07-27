@@ -12,7 +12,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! pg_parse = "0.8"
+//! pg_parse = "0.9"
 //! ```
 //!
 //! # Example: Parsing a query
