@@ -55,7 +55,7 @@ pub(in crate::str) fn join_strings(
     buffer: &mut String,
     nodes: &[Node],
     delim: &str,
-) -> core::result::Result<(), SqlError> {
+) -> Result<(), SqlError> {
     for (index, node) in nodes.iter().enumerate() {
         if index > 0 {
             buffer.push_str(delim);
@@ -81,8 +81,8 @@ pub(in crate::str) fn quote_identifier(ident: &str) -> String {
     let chars = ident.chars().collect::<Vec<_>>();
     let safe = chars
         .iter()
-        .all(|c| c.is_lowercase() || c.is_digit(10) || *c == '_')
-        && !chars[0].is_digit(10);
+        .all(|c| c.is_lowercase() || c.is_ascii_digit() || *c == '_')
+        && !chars[0].is_ascii_digit();
     if safe && !is_keyword(ident) {
         ident.to_string()
     } else {
@@ -232,7 +232,7 @@ pub(in crate::str) fn is_keyword(ident: &str) -> bool {
 pub(in crate::str) fn non_reserved_word_or_sconst(
     buffer: &mut String,
     val: &str,
-) -> core::result::Result<(), SqlError> {
+) -> Result<(), SqlError> {
     if val.is_empty() {
         buffer.push_str("''");
     } else if val.len() >= 64 {
