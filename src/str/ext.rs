@@ -9,11 +9,7 @@ use crate::str::{Context, SqlBuilder, SqlBuilderWithContext, SqlError};
 
 pub(in crate::str) struct SqlValue<'a>(pub &'a Node);
 impl SqlBuilderWithContext for SqlValue<'_> {
-    fn build_with_context(
-        &self,
-        buffer: &mut String,
-        context: Context,
-    ) -> core::result::Result<(), SqlError> {
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         match self.0 {
             Node::Integer { value } => buffer.push_str(&format!("{}", *value)),
             Node::Float { value } => {
@@ -66,7 +62,7 @@ impl SqlBuilderWithContext for SqlValue<'_> {
 
 pub(in crate::str) struct Collate<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for Collate<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("COLLATE ");
         AnyName(self.0).build(buffer)
     }
@@ -74,7 +70,7 @@ impl SqlBuilder for Collate<'_> {
 
 pub(in crate::str) struct RelOptions<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for RelOptions<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push('(');
         for (index, elem) in iter_only!(self.0, Node::DefElem).enumerate() {
             if index > 0 {
@@ -101,7 +97,7 @@ impl SqlBuilder for RelOptions<'_> {
 
 pub(in crate::str) struct DefArg<'a>(pub &'a Node, bool);
 impl SqlBuilder for DefArg<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
             Node::TypeName(type_name) => type_name.build(buffer)?,
             Node::List(list) => match list.items.len() {
@@ -140,7 +136,7 @@ impl SqlBuilder for DefArg<'_> {
 
 pub(in crate::str) struct FromClause<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for FromClause<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("FROM ");
         FromList(self.0).build(buffer)
     }
@@ -148,7 +144,7 @@ impl SqlBuilder for FromClause<'_> {
 
 pub(in crate::str) struct WhereClause<'a>(pub &'a Node);
 impl SqlBuilder for WhereClause<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("WHERE ");
         Expr(self.0).build(buffer)
     }
@@ -156,7 +152,7 @@ impl SqlBuilder for WhereClause<'_> {
 
 pub(in crate::str) struct ExprList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for ExprList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, node) in self.0.iter().enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -169,7 +165,7 @@ impl SqlBuilder for ExprList<'_> {
 
 pub(in crate::str) struct InsertColumnList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for InsertColumnList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, tgt) in iter_only!(self.0, Node::ResTarget).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -187,7 +183,7 @@ impl SqlBuilder for InsertColumnList<'_> {
 
 pub(in crate::str) struct CreateGenericOptions<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for CreateGenericOptions<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("OPTIONS (");
         for (index, elem) in iter_only!(self.0, Node::DefElem).enumerate() {
             if index > 0 {
@@ -207,7 +203,7 @@ impl SqlBuilder for CreateGenericOptions<'_> {
 
 pub(in crate::str) struct SetClauseList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for SetClauseList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         // Assert there is something to set
         let target_list = iter_only!(self.0, Node::ResTarget).collect::<Vec<_>>();
         if target_list.is_empty() {
@@ -256,7 +252,7 @@ impl SqlBuilder for SetClauseList<'_> {
 
 pub(in crate::str) struct SetTarget<'a>(pub &'a ResTarget);
 impl SqlBuilder for SetTarget<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.0.name);
         ColId(name).build(buffer)?;
         if let Some(ref indirection) = self.0.indirection {
@@ -268,7 +264,7 @@ impl SqlBuilder for SetTarget<'_> {
 
 pub(in crate::str) struct TargetList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for TargetList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, tgt) in iter_only!(self.0, Node::ResTarget).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -292,7 +288,7 @@ impl SqlBuilder for TargetList<'_> {
 
 pub(in crate::str) struct SortClause<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for SortClause<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.0.is_empty() {
             return Ok(());
         }
@@ -310,7 +306,7 @@ impl SqlBuilder for SortClause<'_> {
 
 pub(in crate::str) struct ParenthesizedSeqOptList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for ParenthesizedSeqOptList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if !self.0.is_empty() {
             buffer.push('(');
             SeqOptList(self.0).build(buffer)?;
@@ -322,7 +318,7 @@ impl SqlBuilder for ParenthesizedSeqOptList<'_> {
 
 pub(in crate::str) struct FunctionWithArgTypes<'a>(pub &'a ObjectWithArgs);
 impl SqlBuilder for FunctionWithArgTypes<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.0.objname);
         FuncName(name).build(buffer)?;
         if !self.0.args_unspecified {
@@ -348,7 +344,7 @@ impl SqlBuilder for FunctionWithArgTypes<'_> {
 
 pub(in crate::str) struct AggregateWithArgTypes<'a>(pub &'a ObjectWithArgs);
 impl SqlBuilder for AggregateWithArgTypes<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.0.objname);
         FuncName(name).build(buffer)?;
         buffer.push('(');
@@ -369,7 +365,7 @@ impl SqlBuilder for AggregateWithArgTypes<'_> {
 
 pub(in crate::str) struct OperatorWithArgTypes<'a>(pub &'a ObjectWithArgs);
 impl SqlBuilder for OperatorWithArgTypes<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.0.objname);
         AnyOperator(name).build(buffer)?;
 
@@ -398,7 +394,7 @@ impl SqlBuilder for OperatorWithArgTypes<'_> {
 
 pub(in crate::str) struct SubqueryOperator<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for SubqueryOperator<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let list = self.0;
         if list.len() == 1 {
             if let Node::String {
@@ -449,7 +445,7 @@ impl SqlBuilder for SubqueryOperator<'_> {
 
 pub(in crate::str) struct QualifiedOperator<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for QualifiedOperator<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let list = self.0;
         if list.len() == 1 {
             if let Node::String {
@@ -473,7 +469,7 @@ impl SqlBuilder for QualifiedOperator<'_> {
 
 pub(in crate::str) struct AnyOperator<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for AnyOperator<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let list = node_vec_to_string_vec(self.0);
         if list.is_empty() {
             return Err(SqlError::Missing("list".into()));
@@ -495,21 +491,21 @@ impl SqlBuilder for AnyOperator<'_> {
 
 pub(in crate::str) struct FuncName<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for FuncName<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         join_strings(buffer, self.0, ".")
     }
 }
 
 pub(in crate::str) struct AnyName<'a>(pub &'a [Node]);
 impl SqlBuilder for AnyName<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         join_strings(buffer, self.0, ".")
     }
 }
 
 pub(in crate::str) struct AnyNameList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for AnyNameList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, list) in iter_only!(self.0, Node::List).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -522,14 +518,14 @@ impl SqlBuilder for AnyNameList<'_> {
 
 pub(in crate::str) struct ColumnList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for ColumnList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         join_strings(buffer, self.0, ", ")
     }
 }
 
 pub(in crate::str) struct FromList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for FromList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, table_ref) in self.0.iter().enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -542,7 +538,7 @@ impl SqlBuilder for FromList<'_> {
 
 pub(in crate::str) struct NameList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for NameList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, node) in self.0.iter().enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -556,7 +552,7 @@ impl SqlBuilder for NameList<'_> {
 
 pub(in crate::str) struct XmlAttributeList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for XmlAttributeList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, item) in iter_only!(self.0, Node::ResTarget).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -576,7 +572,7 @@ impl SqlBuilder for XmlAttributeList<'_> {
 
 pub(in crate::str) struct Indirection<'a>(pub &'a Vec<Node>, pub usize);
 impl SqlBuilder for Indirection<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for node in self.0.iter().skip(self.1) {
             match node {
                 Node::String { value } => {
@@ -597,7 +593,7 @@ impl SqlBuilder for Indirection<'_> {
 
 pub(in crate::str) struct ColId<'a>(pub &'a str);
 impl SqlBuilder for ColId<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str(&quote_identifier(self.0));
         Ok(())
     }
@@ -605,7 +601,7 @@ impl SqlBuilder for ColId<'_> {
 
 pub(in crate::str) struct StringLiteral<'a>(pub &'a str);
 impl SqlBuilder for StringLiteral<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let val = self.0;
         if val.contains('\\') {
             buffer.push('E');
@@ -632,7 +628,7 @@ impl SqlBuilder for StringLiteral<'_> {
 // 2) when the value is equal or larger than NAMEDATALEN (64+ characters)
 pub(in crate::str) struct NonReservedWordOrSconst<'a>(pub &'a Node);
 impl SqlBuilder for NonReservedWordOrSconst<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let val = string_value!(self.0);
         non_reserved_word_or_sconst(buffer, val)
     }
@@ -640,7 +636,7 @@ impl SqlBuilder for NonReservedWordOrSconst<'_> {
 
 pub(in crate::str) struct Expr<'a>(pub &'a Node);
 impl SqlBuilder for Expr<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
             Node::FuncCall(inner) => inner.build(buffer)?,
             Node::XmlExpr(inner) => inner.build(buffer)?,
@@ -673,7 +669,7 @@ impl SqlBuilder for Expr<'_> {
 
 pub(in crate::str) struct TableRef<'a>(pub &'a Node);
 impl SqlBuilder for TableRef<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
             Node::RangeVar(var) => var.build_with_context(buffer, Context::None)?,
             Node::RangeTableSample(sample) => sample.build(buffer)?,
@@ -689,7 +685,7 @@ impl SqlBuilder for TableRef<'_> {
 
 pub(in crate::str) struct FuncExprWindowless<'a>(pub &'a Node);
 impl SqlBuilder for FuncExprWindowless<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
             Node::FuncCall(func) => func.build(buffer)?,
             Node::SQLValueFunction(func) => func.build(buffer)?,
@@ -706,7 +702,7 @@ impl SqlBuilder for FuncExprWindowless<'_> {
 
 pub(in crate::str) struct PreparableStmt<'a>(pub &'a Node);
 impl SqlBuilder for PreparableStmt<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
             Node::SelectStmt(stmt) => stmt.build(buffer)?,
             Node::InsertStmt(stmt) => stmt.build(buffer)?,
@@ -720,7 +716,7 @@ impl SqlBuilder for PreparableStmt<'_> {
 
 pub(in crate::str) struct SchemaStmt<'a>(pub &'a Node);
 impl SqlBuilder for SchemaStmt<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
             Node::CreateStmt(stmt) => stmt.build_with_context(buffer, Context::None)?,
             Node::IndexStmt(stmt) => stmt.build(buffer)?,
@@ -736,7 +732,7 @@ impl SqlBuilder for SchemaStmt<'_> {
 
 pub(in crate::str) struct CommonFuncOptItem<'a>(pub &'a DefElem);
 impl SqlBuilder for CommonFuncOptItem<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.0.defname);
         let arg = must!(self.0.arg);
         if name.eq("strict") {
@@ -796,14 +792,14 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
 
 pub(in crate::str) struct VarName<'a>(pub &'a String);
 impl SqlBuilder for VarName<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         ColId(self.0).build(buffer)
     }
 }
 
 pub(in crate::str) struct VarList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for VarList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, node) in self.0.iter().enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -825,7 +821,7 @@ impl SqlBuilder for VarList<'_> {
 
 pub(in crate::str) struct BooleanOrString<'a>(pub &'a String);
 impl SqlBuilder for BooleanOrString<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match &self.0[..] {
             "true" => buffer.push_str("TRUE"),
             "false" => buffer.push_str("FALSE"),
@@ -839,7 +835,7 @@ impl SqlBuilder for BooleanOrString<'_> {
 
 pub(in crate::str) struct OptWith<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for OptWith<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if !self.0.is_empty() {
             buffer.push_str("WITH ");
             RelOptions(self.0).build(buffer)?;
@@ -850,7 +846,7 @@ impl SqlBuilder for OptWith<'_> {
 
 pub(in crate::str) struct OptDropBehavior<'a>(pub &'a DropBehavior);
 impl SqlBuilder for OptDropBehavior<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.0 {
             DropBehavior::DROP_RESTRICT => {}
             DropBehavior::DROP_CASCADE => buffer.push_str(" CASCADE"),
@@ -861,7 +857,7 @@ impl SqlBuilder for OptDropBehavior<'_> {
 
 pub(in crate::str) struct TransactionModeList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for TransactionModeList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, item) in iter_only!(self.0, Node::DefElem).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -923,7 +919,7 @@ impl SqlBuilder for TransactionModeList<'_> {
 
 pub(in crate::str) struct NumericOnly<'a>(pub &'a Node);
 impl SqlBuilder for NumericOnly<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
             Node::Integer { value } => buffer.push_str(&format!("{}", *value)),
             Node::Float { value: Some(value) } => buffer.push_str(value),
@@ -935,7 +931,7 @@ impl SqlBuilder for NumericOnly<'_> {
 
 pub(in crate::str) struct SeqOptElem<'a>(pub &'a DefElem);
 impl SqlBuilder for SeqOptElem<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.0.defname);
         match &name[..] {
             "as" => {
@@ -1017,7 +1013,7 @@ impl SqlBuilder for SeqOptElem<'_> {
 
 pub(in crate::str) struct AlterIdentityColumnOptionList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for AlterIdentityColumnOptionList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, elem) in iter_only!(self.0, Node::DefElem).enumerate() {
             if index > 0 {
                 buffer.push(' ');
@@ -1054,7 +1050,7 @@ impl SqlBuilder for AlterIdentityColumnOptionList<'_> {
 
 pub(in crate::str) struct AlterGenericOptions<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for AlterGenericOptions<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("OPTIONS (");
 
         for (index, elem) in iter_only!(self.0, Node::DefElem).enumerate() {
@@ -1100,7 +1096,7 @@ impl SqlBuilder for AlterGenericOptions<'_> {
 
 pub(in crate::str) struct SignedIConst<'a>(pub &'a Node);
 impl SqlBuilder for SignedIConst<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let val = int_value!(self.0);
         buffer.push_str(&val.to_string());
         Ok(())
@@ -1109,7 +1105,7 @@ impl SqlBuilder for SignedIConst<'_> {
 
 pub(in crate::str) struct GenericDefElemName<'a>(pub &'a str);
 impl SqlBuilder for GenericDefElemName<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str(&self.0.to_uppercase());
         Ok(())
     }
@@ -1117,7 +1113,7 @@ impl SqlBuilder for GenericDefElemName<'_> {
 
 pub(in crate::str) struct GroupByList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for GroupByList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, item) in self.0.iter().enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -1133,7 +1129,7 @@ impl SqlBuilder for GroupByList<'_> {
 
 pub(in crate::str) struct SeqOptList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for SeqOptList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, item) in iter_only!(self.0, Node::DefElem).enumerate() {
             if index > 0 {
                 buffer.push(' ');
@@ -1146,7 +1142,7 @@ impl SqlBuilder for SeqOptList<'_> {
 
 pub(in crate::str) struct TypeList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for TypeList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, item) in iter_only!(self.0, Node::TypeName).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -1159,7 +1155,7 @@ impl SqlBuilder for TypeList<'_> {
 
 pub(in crate::str) struct RelationExprList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for RelationExprList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, item) in iter_only!(self.0, Node::RangeVar).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -1172,7 +1168,7 @@ impl SqlBuilder for RelationExprList<'_> {
 
 pub(in crate::str) struct QualifiedNameList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for QualifiedNameList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for range in iter_only!(self.0, Node::RangeVar).enumerate() {
             if range.0 > 0 {
                 buffer.push_str(", ");
@@ -1185,7 +1181,7 @@ impl SqlBuilder for QualifiedNameList<'_> {
 
 pub(in crate::str) struct XmlNamespaceList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for XmlNamespaceList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, item) in iter_only!(self.0, Node::ResTarget).enumerate() {
             if index > 0 {
                 buffer.push_str(", ");
@@ -1208,7 +1204,7 @@ impl SqlBuilder for XmlNamespaceList<'_> {
 
 pub(in crate::str) struct FunctionWithArgTypesList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for FunctionWithArgTypesList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for item in iter_only!(self.0, Node::ObjectWithArgs).enumerate() {
             if item.0 > 0 {
                 buffer.push_str(", ");
@@ -1221,7 +1217,7 @@ impl SqlBuilder for FunctionWithArgTypesList<'_> {
 
 pub(in crate::str) struct NumericOnlyList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for NumericOnlyList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for item in self.0.iter().enumerate() {
             if item.0 > 0 {
                 buffer.push_str(", ");
@@ -1234,7 +1230,7 @@ impl SqlBuilder for NumericOnlyList<'_> {
 
 pub(in crate::str) struct RoleList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for RoleList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for item in iter_only!(self.0, Node::RoleSpec).enumerate() {
             if item.0 > 0 {
                 buffer.push_str(", ");
@@ -1247,7 +1243,7 @@ impl SqlBuilder for RoleList<'_> {
 
 pub(in crate::str) struct AggrArgs<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for AggrArgs<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.0.is_empty() {
             return Err(SqlError::Unsupported("Empty AggrArgs".into()));
         }
@@ -1291,7 +1287,7 @@ impl SqlBuilder for AggrArgs<'_> {
 
 pub(in crate::str) struct Definition<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for Definition<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push('(');
         for (index, item) in iter_only!(self.0, Node::DefElem).enumerate() {
             if index > 0 {
@@ -1311,7 +1307,7 @@ impl SqlBuilder for Definition<'_> {
 
 pub(in crate::str) struct CreatedbOptList<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for CreatedbOptList<'_> {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for (index, elem) in iter_only!(self.0, Node::DefElem).enumerate() {
             if index > 0 {
                 buffer.push(' ');

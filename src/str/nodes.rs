@@ -4,7 +4,7 @@ use crate::str::helpers::*;
 use crate::str::{Context, SqlBuilder, SqlBuilderWithContext, SqlError};
 
 impl SqlBuilder for A_ArrayExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let elements = must!(self.elements);
         buffer.push_str("ARRAY[");
         ExprList(elements).build(buffer)?;
@@ -14,7 +14,7 @@ impl SqlBuilder for A_ArrayExpr {
 }
 
 impl SqlBuilder for A_Const {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         SqlValue(self.val.inner()).build_with_context(buffer, Context::Constant)
     }
 }
@@ -44,7 +44,7 @@ impl SqlBuilderWithContext for A_Expr {
                     if need_left_parens {
                         buffer.push('(');
                     }
-                    Expr(&*left).build(buffer)?;
+                    Expr(&**left).build(buffer)?;
                     if need_left_parens {
                         buffer.push(')');
                     }
@@ -60,7 +60,7 @@ impl SqlBuilderWithContext for A_Expr {
                     if need_right_parens {
                         buffer.push('(');
                     }
-                    Expr(&*right).build(buffer)?;
+                    Expr(&**right).build(buffer)?;
                     if need_right_parens {
                         buffer.push(')');
                     }
@@ -312,7 +312,7 @@ impl SqlBuilderWithContext for A_Expr {
 }
 
 impl SqlBuilder for A_Indices {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push('[');
         if let Some(ref index) = self.lidx {
             Expr(&**index).build(buffer)?;
@@ -329,7 +329,7 @@ impl SqlBuilder for A_Indices {
 }
 
 impl SqlBuilder for A_Indirection {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let arg = must!(self.arg);
         let empty = Vec::new();
         let indirection = self.indirection.as_ref().unwrap_or(&empty);
@@ -363,14 +363,14 @@ impl SqlBuilder for A_Indirection {
 }
 
 impl SqlBuilder for A_Star {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push('*');
         Ok(())
     }
 }
 
 impl SqlBuilder for AccessPriv {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref name) = self.priv_name {
             match &name[..] {
                 "select" | "references" | "create" => buffer.push_str(name),
@@ -392,7 +392,7 @@ impl SqlBuilder for AccessPriv {
 }
 
 impl SqlBuilder for AlterSystemStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let stmt = must!(self.setstmt);
         buffer.push_str("ALTER SYSTEM ");
         (**stmt).build(buffer)?;
@@ -401,11 +401,7 @@ impl SqlBuilder for AlterSystemStmt {
 }
 
 impl SqlBuilderWithContext for AlterTableCmd {
-    fn build_with_context(
-        &self,
-        buffer: &mut String,
-        context: Context,
-    ) -> core::result::Result<(), SqlError> {
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         let mut options = None;
         let mut trailing_missing_ok = false;
 
@@ -654,7 +650,7 @@ impl SqlBuilderWithContext for AlterTableCmd {
 }
 
 impl SqlBuilder for AlterDatabaseSetStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let dbname = must!(self.dbname);
         let stmt = must!(self.setstmt);
         buffer.push_str("ALTER DATABASE ");
@@ -666,7 +662,7 @@ impl SqlBuilder for AlterDatabaseSetStmt {
 }
 
 impl SqlBuilder for AlterDatabaseStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let dbname = must!(self.dbname);
         let options = must!(self.options);
         buffer.push_str("ALTER DATABASE ");
@@ -678,7 +674,7 @@ impl SqlBuilder for AlterDatabaseStmt {
 }
 
 impl SqlBuilder for AlterExtensionContentsStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.extname);
         buffer.push_str("ALTER EXTENSION ");
         ColId(name).build(buffer)?;
@@ -820,7 +816,7 @@ impl SqlBuilder for AlterExtensionContentsStmt {
 }
 
 impl SqlBuilder for AlterExtensionStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.extname);
         buffer.push_str("ALTER EXTENSION ");
         ColId(name).build(buffer)?;
@@ -840,7 +836,7 @@ impl SqlBuilder for AlterExtensionStmt {
 }
 
 impl SqlBuilder for AlterObjectDependsStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let extname = must!(self.extname);
 
         buffer.push_str("ALTER ");
@@ -901,7 +897,7 @@ impl SqlBuilder for AlterObjectDependsStmt {
 }
 
 impl SqlBuilder for AlterObjectSchemaStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relation = must!(self.relation);
         let new_schema = must!(self.newschema);
 
@@ -956,7 +952,7 @@ impl SqlBuilder for AlterObjectSchemaStmt {
 }
 
 impl SqlBuilder for AlterTableSpaceOptionsStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.tablespacename);
         let options = must!(self.options);
 
@@ -975,7 +971,7 @@ impl SqlBuilder for AlterTableSpaceOptionsStmt {
 }
 
 impl SqlBuilder for AlterTableStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relation = must!(self.relation);
         let commands = must!(self.cmds);
 
@@ -1016,7 +1012,7 @@ impl SqlBuilder for AlterTableStmt {
 }
 
 impl SqlBuilder for CollateClause {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.collname);
 
         if let Some(ref arg) = self.arg {
@@ -1037,7 +1033,7 @@ impl SqlBuilder for CollateClause {
 }
 
 impl SqlBuilder for ColumnDef {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref name) = self.colname {
             buffer.push_str(name);
         }
@@ -1073,7 +1069,7 @@ impl SqlBuilder for ColumnDef {
 }
 
 impl SqlBuilder for ColumnRef {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let fields = must!(self.fields);
         let mut iter = fields.iter();
         if let Some(node) = iter.next() {
@@ -1095,7 +1091,7 @@ impl SqlBuilder for ColumnRef {
 }
 
 impl SqlBuilder for CommentStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("COMMENT ON ");
         match *self.objtype {
             ObjectType::OBJECT_COLUMN => buffer.push_str("COLUMN "),
@@ -1268,7 +1264,7 @@ impl SqlBuilder for CommentStmt {
 }
 
 impl SqlBuilder for CommonTableExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.ctename);
         ColId(name).build(buffer)?;
 
@@ -1300,7 +1296,7 @@ impl SqlBuilder for CommonTableExpr {
 }
 
 impl SqlBuilder for CompositeTypeStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let type_var = must!(self.typevar);
         buffer.push_str("CREATE TYPE ");
         (**type_var).build_with_context(buffer, Context::CreateType)?;
@@ -1319,7 +1315,7 @@ impl SqlBuilder for CompositeTypeStmt {
 }
 
 impl SqlBuilder for Constraint {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref name) = self.conname {
             buffer.push_str("CONSTRAINT ");
             buffer.push_str(name);
@@ -1522,12 +1518,12 @@ impl SqlBuilder for Constraint {
 }
 
 impl SqlBuilder for CopyStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         fn default_option_impl(
             inner_buffer: &mut String,
             element: &DefElem,
             other: &str,
-        ) -> core::result::Result<(), SqlError> {
+        ) -> Result<(), SqlError> {
             inner_buffer.push_str(other);
             if let Some(ref arg) = element.arg {
                 inner_buffer.push(' ');
@@ -1707,7 +1703,7 @@ impl SqlBuilder for CopyStmt {
 }
 
 impl SqlBuilder for CreateCastStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let source_type = must!(self.sourcetype);
         let target_type = must!(self.targettype);
         buffer.push_str("CREATE CAST (");
@@ -1738,7 +1734,7 @@ impl SqlBuilder for CreateCastStmt {
 }
 
 impl SqlBuilder for CreateDomainStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let type_name = must!(self.type_name);
 
         buffer.push_str("CREATE DOMAIN");
@@ -1765,7 +1761,7 @@ impl SqlBuilder for CreateDomainStmt {
 }
 
 impl SqlBuilder for CreateEnumStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let type_name = must!(self.type_name);
         buffer.push_str("CREATE TYPE ");
         AnyName(type_name).build(buffer)?;
@@ -1784,7 +1780,7 @@ impl SqlBuilder for CreateEnumStmt {
 }
 
 impl SqlBuilder for CreateExtensionStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let extname = must!(self.extname);
 
         buffer.push_str("CREATE EXTENSION ");
@@ -1823,7 +1819,7 @@ impl SqlBuilder for CreateExtensionStmt {
 }
 
 impl SqlBuilder for CreateFunctionStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.funcname);
 
         buffer.push_str("CREATE ");
@@ -1928,7 +1924,7 @@ impl SqlBuilder for CreateFunctionStmt {
 }
 
 impl SqlBuilder for CreateRangeStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let type_name = must!(self.type_name);
         let definition = must!(self.params);
         buffer.push_str("CREATE TYPE ");
@@ -1940,7 +1936,7 @@ impl SqlBuilder for CreateRangeStmt {
 }
 
 impl SqlBuilder for CreateSchemaStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("CREATE SCHEMA");
         if self.if_not_exists {
             buffer.push_str(" IF NOT EXISTS");
@@ -1965,7 +1961,7 @@ impl SqlBuilder for CreateSchemaStmt {
 }
 
 impl SqlBuilder for CreateSeqStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let sequence = must!(self.sequence);
 
         buffer.push_str("CREATE ");
@@ -1991,11 +1987,7 @@ impl SqlBuilder for CreateSeqStmt {
 }
 
 impl SqlBuilderWithContext for CreateStmt {
-    fn build_with_context(
-        &self,
-        buffer: &mut String,
-        context: Context,
-    ) -> core::result::Result<(), SqlError> {
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         let relation = must!(self.relation);
 
         buffer.push_str("CREATE ");
@@ -2099,7 +2091,7 @@ impl SqlBuilderWithContext for CreateStmt {
 }
 
 impl SqlBuilder for CreateTableAsStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let into = must!(self.into);
 
         buffer.push_str("CREATE");
@@ -2142,7 +2134,7 @@ impl SqlBuilder for CreateTableAsStmt {
 }
 
 impl SqlBuilder for CreateTableSpaceStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.tablespacename);
         let location = must!(self.location);
 
@@ -2166,7 +2158,7 @@ impl SqlBuilder for CreateTableSpaceStmt {
 }
 
 impl SqlBuilder for CreateTrigStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.trigname);
         let func_name = must!(self.funcname);
         let relation = must!(self.relation);
@@ -2269,7 +2261,7 @@ impl SqlBuilder for CreateTrigStmt {
 }
 
 impl SqlBuilder for CreatedbStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let dbname = must!(self.dbname);
         buffer.push_str("CREATE DATABASE ");
         ColId(dbname).build(buffer)?;
@@ -2284,7 +2276,7 @@ impl SqlBuilder for CreatedbStmt {
 }
 
 impl SqlBuilder for DefineStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("CREATE");
         if self.replace {
             buffer.push_str(" OR REPLACE")
@@ -2360,7 +2352,7 @@ impl SqlBuilder for DefineStmt {
 }
 
 impl SqlBuilder for DeleteStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relation = must!(self.relation);
 
         if let Some(ref with) = self.with_clause {
@@ -2393,7 +2385,7 @@ impl SqlBuilder for DeleteStmt {
 }
 
 impl SqlBuilder for DiscardStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("DISCARD ");
         match *self.target {
             DiscardMode::DISCARD_ALL => buffer.push_str("ALL"),
@@ -2406,7 +2398,7 @@ impl SqlBuilder for DiscardStmt {
 }
 
 impl SqlBuilder for DoStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("DO");
         if let Some(ref args) = self.args {
             for arg in iter_only!(args, Node::DefElem) {
@@ -2432,7 +2424,7 @@ impl SqlBuilder for DoStmt {
 }
 
 impl SqlBuilder for DropRoleStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let roles = must!(self.roles);
         buffer.push_str("DROP ROLE ");
         if self.missing_ok {
@@ -2444,7 +2436,7 @@ impl SqlBuilder for DropRoleStmt {
 }
 
 impl SqlBuilder for DropStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let objects = must!(self.objects);
 
         buffer.push_str("DROP");
@@ -2655,7 +2647,7 @@ impl SqlBuilder for DropStmt {
 }
 
 impl SqlBuilder for DropSubscriptionStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let sub_name = must!(self.subname);
         buffer.push_str("DROP SUBSCRIPTION ");
         if self.missing_ok {
@@ -2667,7 +2659,7 @@ impl SqlBuilder for DropSubscriptionStmt {
 }
 
 impl SqlBuilder for DropTableSpaceStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let tablespace = must!(self.tablespacename);
         buffer.push_str("DROP TABLESPACE ");
         if self.missing_ok {
@@ -2679,7 +2671,7 @@ impl SqlBuilder for DropTableSpaceStmt {
 }
 
 impl SqlBuilder for ExecuteStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.name);
         buffer.push_str("EXECUTE ");
         buffer.push_str(&quote_identifier(name));
@@ -2695,7 +2687,7 @@ impl SqlBuilder for ExecuteStmt {
 }
 
 impl SqlBuilder for ExplainStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("EXPLAIN");
         if let Some(ref options) = self.options {
             if !options.is_empty() {
@@ -2734,7 +2726,7 @@ impl SqlBuilder for ExplainStmt {
 }
 
 impl SqlBuilder for FuncCall {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let func_name = must!(self.funcname);
 
         // OVERLAY is a keyword, and only accepts keyword parameter style when used as a keyword and
@@ -2813,7 +2805,7 @@ impl SqlBuilder for FuncCall {
 }
 
 impl SqlBuilder for FunctionParameter {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.mode {
             FunctionParameterMode::FUNC_PARAM_IN => {} // Default
             FunctionParameterMode::FUNC_PARAM_OUT => buffer.push_str("OUT"),
@@ -2842,7 +2834,7 @@ impl SqlBuilder for FunctionParameter {
 }
 
 impl SqlBuilder for GrantRoleStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let granted_roles = must!(self.granted_roles);
         let grantee_roles = must!(self.grantee_roles);
 
@@ -2874,7 +2866,7 @@ impl SqlBuilder for GrantRoleStmt {
 }
 
 impl SqlBuilder for GrantStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.is_grant {
             buffer.push_str("GRANT");
         } else {
@@ -3025,7 +3017,7 @@ impl SqlBuilder for GrantStmt {
 }
 
 impl SqlBuilder for GroupingSet {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.kind {
             GroupingSetKind::GROUPING_SET_EMPTY => buffer.push_str("()"),
             GroupingSetKind::GROUPING_SET_SIMPLE => unsupported!(self.kind),
@@ -3056,7 +3048,7 @@ impl SqlBuilder for GroupingSet {
 }
 
 impl SqlBuilder for IndexElem {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref name) = self.name {
             ColId(name).build(buffer)?;
         } else if let Some(ref expr) = self.expr {
@@ -3113,7 +3105,7 @@ impl SqlBuilder for IndexElem {
 }
 
 impl SqlBuilder for IndexStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relation = must!(self.relation);
 
         buffer.push_str("CREATE");
@@ -3182,7 +3174,7 @@ impl SqlBuilder for IndexStmt {
 }
 
 impl SqlBuilder for InferClause {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref elements) = self.index_elems {
             if !elements.is_empty() {
                 buffer.push('(');
@@ -3215,7 +3207,7 @@ impl SqlBuilder for InferClause {
 }
 
 impl SqlBuilder for InsertStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref with) = self.with_clause {
             (**with).build(buffer)?;
             buffer.push(' ');
@@ -3268,7 +3260,7 @@ impl SqlBuilder for InsertStmt {
 }
 
 impl SqlBuilder for LoadStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let filename = must!(self.filename);
         buffer.push_str("LOAD ");
         StringLiteral(filename).build(buffer)?;
@@ -3277,7 +3269,7 @@ impl SqlBuilder for LoadStmt {
 }
 
 impl SqlBuilder for LockStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relations = must!(self.relations);
         buffer.push_str("LOCK TABLE ");
         RelationExprList(relations).build(buffer)?;
@@ -3311,7 +3303,7 @@ impl SqlBuilder for LockStmt {
 }
 
 impl SqlBuilder for LockingClause {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.strength {
             LockClauseStrength::LCS_NONE => {}
             LockClauseStrength::LCS_FORKEYSHARE => buffer.push_str(" FOR KEY SHARE"),
@@ -3335,7 +3327,7 @@ impl SqlBuilder for LockingClause {
 }
 
 impl SqlBuilder for OnConflictClause {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("ON CONFLICT");
 
         // Infer clause
@@ -3368,7 +3360,7 @@ impl SqlBuilder for OnConflictClause {
 }
 
 impl SqlBuilder for ParamRef {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.number == 0 {
             buffer.push('?');
         } else {
@@ -3379,7 +3371,7 @@ impl SqlBuilder for ParamRef {
 }
 
 impl SqlBuilder for PartitionBoundSpec {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.is_default {
             buffer.push_str("DEFAULT");
             return Ok(());
@@ -3424,7 +3416,7 @@ impl SqlBuilder for PartitionBoundSpec {
 }
 
 impl SqlBuilder for PartitionCmd {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.name);
         (**name).build_with_context(buffer, Context::None)?;
 
@@ -3437,7 +3429,7 @@ impl SqlBuilder for PartitionCmd {
 }
 
 impl SqlBuilder for PartitionElem {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref name) = self.name {
             ColId(name).build(buffer)?;
         } else if let Some(ref expr) = self.expr {
@@ -3459,7 +3451,7 @@ impl SqlBuilder for PartitionElem {
 }
 
 impl SqlBuilder for PartitionSpec {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("PARTITION BY ");
         if let Some(ref strategy) = self.strategy {
             buffer.push_str(strategy);
@@ -3479,7 +3471,7 @@ impl SqlBuilder for PartitionSpec {
 }
 
 impl SqlBuilder for PrepareStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let col_id = must!(self.name);
         let query = must!(self.query);
 
@@ -3499,7 +3491,7 @@ impl SqlBuilder for PrepareStmt {
 }
 
 impl SqlBuilder for RangeFunction {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.lateral {
             if !buffer.is_empty() && !buffer.ends_with(' ') {
                 buffer.push(' ');
@@ -3586,7 +3578,7 @@ impl SqlBuilder for RangeFunction {
 }
 
 impl SqlBuilder for RangeSubselect {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         // Extract the subquery since it is mandatory
         let select = must!(self.subquery);
 
@@ -3608,7 +3600,7 @@ impl SqlBuilder for RangeSubselect {
 }
 
 impl SqlBuilder for RangeTableFunc {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.lateral {
             buffer.push_str("LATERAL ");
         }
@@ -3647,7 +3639,7 @@ impl SqlBuilder for RangeTableFunc {
 }
 
 impl SqlBuilder for RangeTableFuncCol {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let colname = must!(self.colname);
         buffer.push_str(&quote_identifier(colname));
 
@@ -3678,7 +3670,7 @@ impl SqlBuilder for RangeTableFuncCol {
 }
 
 impl SqlBuilder for RangeTableSample {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relation = must!(self.relation);
         let relation = node!(**relation, Node::RangeVar);
         let method = must!(self.method);
@@ -3703,7 +3695,7 @@ impl SqlBuilder for RangeTableSample {
 }
 
 impl SqlBuilder for RenameStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("ALTER");
         match *self.rename_type {
             ObjectType::OBJECT_AGGREGATE => buffer.push_str(" AGGREGATE"),
@@ -3886,7 +3878,7 @@ impl SqlBuilder for RenameStmt {
 }
 
 impl SqlBuilder for ReplicaIdentityStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.identity_type {
             constants::REPLICA_IDENTITY_NOTHING => buffer.push_str("NOTHING"),
             constants::REPLICA_IDENTITY_FULL => buffer.push_str("FULL"),
@@ -3903,7 +3895,7 @@ impl SqlBuilder for ReplicaIdentityStmt {
 }
 
 impl SqlBuilder for ResTarget {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let val = must!(self.val);
         (**val).build(buffer)?;
 
@@ -3916,7 +3908,7 @@ impl SqlBuilder for ResTarget {
 }
 
 impl SqlBuilder for RoleSpec {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.roletype {
             RoleSpecType::ROLESPEC_CSTRING => {
                 buffer.push_str(&quote_identifier(must!(self.rolename)));
@@ -3930,7 +3922,7 @@ impl SqlBuilder for RoleSpec {
 }
 
 impl SqlBuilder for SelectStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if let Some(ref with) = self.with_clause {
             (**with).build(buffer)?;
         }
@@ -4162,7 +4154,7 @@ impl SqlBuilder for SelectStmt {
 }
 
 impl SqlBuilder for SortBy {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let node = must!(self.node);
         Expr(&**node).build(buffer)?;
 
@@ -4190,7 +4182,7 @@ impl SqlBuilder for SortBy {
 }
 
 impl SqlBuilder for TableLikeClause {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relation = must!(self.relation);
 
         buffer.push_str("LIKE ");
@@ -4229,7 +4221,7 @@ impl SqlBuilder for TableLikeClause {
 }
 
 impl SqlBuilder for TransactionStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.kind {
             TransactionStmtKind::TRANS_STMT_BEGIN => {
                 buffer.push_str("BEGIN");
@@ -4287,7 +4279,7 @@ impl SqlBuilder for TransactionStmt {
 }
 
 impl SqlBuilder for TriggerTransition {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.name);
         if self.is_new {
             buffer.push_str("NEW ");
@@ -4305,7 +4297,7 @@ impl SqlBuilder for TriggerTransition {
 }
 
 impl SqlBuilder for TypeCast {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let arg = must!(self.arg);
         let type_name = must!(self.type_name);
 
@@ -4371,7 +4363,7 @@ impl SqlBuilder for TypeCast {
 }
 
 impl SqlBuilder for TypeName {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name_nodes = must!(self.names);
         let names = node_vec_to_string_vec(name_nodes);
 
@@ -4526,7 +4518,7 @@ impl SqlBuilder for TypeName {
 }
 
 impl SqlBuilder for UpdateStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let relation = must!(self.relation);
 
         if let Some(ref with) = self.with_clause {
@@ -4567,7 +4559,7 @@ impl SqlBuilder for UpdateStmt {
 }
 
 impl SqlBuilder for VacuumStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.is_vacuumcmd {
             buffer.push_str("VACUUM");
         } else {
@@ -4628,7 +4620,7 @@ impl SqlBuilder for VacuumStmt {
 }
 
 impl SqlBuilder for VariableSetStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.kind {
             // SET var = value
             VariableSetKind::VAR_SET_VALUE => {
@@ -4711,7 +4703,7 @@ impl SqlBuilder for VariableSetStmt {
 }
 
 impl SqlBuilder for ViewStmt {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let view = must!(self.view);
         buffer.push_str("CREATE ");
         if self.replace {
@@ -4757,7 +4749,7 @@ impl SqlBuilder for ViewStmt {
 }
 
 impl SqlBuilder for WindowDef {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         // The calling node is responsible for outputting the name
         buffer.push('(');
 
@@ -4855,7 +4847,7 @@ impl SqlBuilder for WindowDef {
 }
 
 impl SqlBuilder for WithClause {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("WITH ");
         if self.recursive {
             buffer.push_str("RECURSIVE ");
@@ -4875,7 +4867,7 @@ impl SqlBuilder for WithClause {
 }
 
 impl SqlBuilder for XmlSerialize {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("xmlserialize(");
         match *self.xmloption {
             XmlOptionType::XMLOPTION_DOCUMENT => buffer.push_str("document "),
@@ -4894,7 +4886,7 @@ impl SqlBuilder for XmlSerialize {
 }
 
 impl SqlBuilder for Alias {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.aliasname);
         buffer.push_str(&quote_identifier(name));
 
@@ -4912,7 +4904,7 @@ impl SqlBuilder for Alias {
 
 // Expressions
 impl SqlBuilder for BoolExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let args = must!(self.args);
         match *self.boolop {
             BoolExprType::AND_EXPR | BoolExprType::OR_EXPR => {
@@ -4964,7 +4956,7 @@ impl SqlBuilder for BoolExpr {
 }
 
 impl SqlBuilder for BooleanTest {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let arg = must!(self.arg);
         Expr(&**arg).build(buffer)?;
         match *self.booltesttype {
@@ -4980,7 +4972,7 @@ impl SqlBuilder for BooleanTest {
 }
 
 impl SqlBuilder for CaseExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("CASE ");
 
         // Do the case expr
@@ -5009,7 +5001,7 @@ impl SqlBuilder for CaseExpr {
 }
 
 impl SqlBuilder for CaseWhen {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let expr = must!(self.expr);
         let result = must!(self.result);
         buffer.push_str("WHEN ");
@@ -5020,7 +5012,7 @@ impl SqlBuilder for CaseWhen {
 }
 
 impl SqlBuilder for CoalesceExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let args = must!(self.args);
         buffer.push_str("COALESCE(");
         ExprList(args).build(buffer)?;
@@ -5030,7 +5022,7 @@ impl SqlBuilder for CoalesceExpr {
 }
 
 impl SqlBuilder for CurrentOfExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let name = must!(self.cursor_name);
         buffer.push_str("CURRENT OF ");
         buffer.push_str(&quote_identifier(name));
@@ -5039,7 +5031,7 @@ impl SqlBuilder for CurrentOfExpr {
 }
 
 impl SqlBuilder for GroupingFunc {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("GROUPING(");
         if let Some(ref args) = self.args {
             ExprList(args).build(buffer)?;
@@ -5050,7 +5042,7 @@ impl SqlBuilder for GroupingFunc {
 }
 
 impl SqlBuilder for IntoClause {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let rel = must!(self.rel);
 
         // Start with the target relation name
@@ -5093,7 +5085,7 @@ impl SqlBuilder for IntoClause {
 }
 
 impl SqlBuilder for JoinExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         if self.alias.is_some() {
             buffer.push('(');
         }
@@ -5176,7 +5168,7 @@ impl SqlBuilder for JoinExpr {
 }
 
 impl SqlBuilder for MinMaxExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.op {
             MinMaxOp::IS_GREATEST => buffer.push_str("GREATEST("),
             MinMaxOp::IS_LEAST => buffer.push_str("LEAST("),
@@ -5190,7 +5182,7 @@ impl SqlBuilder for MinMaxExpr {
 }
 
 impl SqlBuilder for NullTest {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let arg = must!(self.arg);
         Expr(&**arg).build(buffer)?;
         match *self.nulltesttype {
@@ -5234,7 +5226,7 @@ impl SqlBuilderWithContext for RangeVar {
 }
 
 impl SqlBuilder for RowExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let args = must!(self.args);
         match *self.row_format {
             CoercionForm::COERCE_EXPLICIT_CALL => buffer.push_str("ROW"),
@@ -5251,7 +5243,7 @@ impl SqlBuilder for RowExpr {
 }
 
 impl SqlBuilder for SQLValueFunction {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.op {
             SQLValueFunctionOp::SVFOP_CURRENT_DATE => buffer.push_str("current_date"),
             SQLValueFunctionOp::SVFOP_CURRENT_TIME => buffer.push_str("current_time"),
@@ -5279,14 +5271,14 @@ impl SqlBuilder for SQLValueFunction {
 }
 
 impl SqlBuilder for SetToDefault {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("DEFAULT");
         Ok(())
     }
 }
 
 impl SqlBuilder for SubLink {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let sub_select = must!(self.subselect);
         match *self.sub_link_type {
             SubLinkType::EXISTS_SUBLINK => {
@@ -5350,7 +5342,7 @@ impl SqlBuilder for SubLink {
 }
 
 impl SqlBuilder for XmlExpr {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.op {
             XmlExprOp::IS_XMLCONCAT => {
                 buffer.push_str("xmlconcat(");
