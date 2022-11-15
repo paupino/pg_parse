@@ -13,7 +13,7 @@ fn main() {
     let src_dir = PathBuf::from("./lib/libpg_query").canonicalize().unwrap();
     println!(
         "cargo:rerun-if-changed={}",
-        build_dir.join("pg_query.h").display()
+        src_dir.join("pg_query.h").display()
     );
 
     // Copy the files over
