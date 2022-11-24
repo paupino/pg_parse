@@ -1,3 +1,11 @@
+# Version 0.10
+
+Modified:
+* Updated `libpg_query` to [13.2.2](https://github.com/pganalyze/libpg_query/releases/tag/13-2.2.0).
+* Build optimization to prevent rebuilding when no changes [#16](https://github.com/paupino/pg_parse/pull/16).
+
+Thank you [@haileys](https://github.com/haileys) for your contribution!
+
 # Version 0.9.1
 
 Modified:
