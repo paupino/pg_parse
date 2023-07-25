@@ -75,22 +75,14 @@ fn it_can_generate_a_create_table_ast() {
             };
             assert_eq!(mods.len(), 2);
             match &mods[0] {
-                Node::A_Const(pg_parse::ast::A_Const { val, .. }) => {
-                    let constant = match **val {
-                        pg_parse::ast::Value(Node::Integer { value }) => value,
-                        _ => panic!("Expected value"),
-                    };
-                    assert_eq!(constant, 5);
+                Node::Integer { value } => {
+                    assert_eq!(*value, 5);
                 }
                 unexpected => panic!("Unexpected type for mods[0] {:?}", unexpected),
             }
             match &mods[1] {
-                Node::A_Const(pg_parse::ast::A_Const { val, .. }) => {
-                    let constant = match **val {
-                        pg_parse::ast::Value(Node::Integer { value }) => value,
-                        _ => panic!("Expected value"),
-                    };
-                    assert_eq!(constant, 12);
+                Node::Integer { value } => {
+                    assert_eq!(*value, 12);
                 }
                 unexpected => panic!("Unexpected type for mods[0] {:?}", unexpected),
             }
@@ -200,15 +192,11 @@ fn it_can_parse_a_table_of_defaults() {
             assert_eq!(*c2.contype, ConstrType::CONSTR_DEFAULT);
             assert!(c2.raw_expr.is_some());
             let raw_expr = c2.raw_expr.as_ref().unwrap();
-            let a_const = match **raw_expr {
-                Node::A_Const(ref a) => a,
+            let is_null = match **raw_expr {
+                Node::A_Const { value: is_null } => is_null,
                 _ => panic!("Expected constant"),
             };
-            assert!(
-                matches!(*a_const.val, Value(Node::Null {})),
-                "{:?}",
-                a_const
-            )
+            assert!(is_null, "Expected NULL");
         }
         _ => panic!("Unexpected type"),
     }

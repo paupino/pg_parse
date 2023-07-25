@@ -1,7 +1,15 @@
+# Version 15.0
+
+Modified:
+* Updated `libpg_query` to [15-4.2.2](https://github.com/pganalyze/libpg_query/tree/15-4.2.2).
+
+Please note, that this downstream release modifies the nodes generated. Since this is a breaking change, I've
+started to use semver, and to help with this I'm using the Postgres major version as the major version of this.
+
 # Version 0.10
 
 Modified:
-* Updated `libpg_query` to [13.2.2](https://github.com/pganalyze/libpg_query/releases/tag/13-2.2.0).
+* Updated `libpg_query` to [13-2.2.0](https://github.com/pganalyze/libpg_query/releases/tag/13-2.2.0).
 * Build optimization to prevent rebuilding when no changes [#16](https://github.com/paupino/pg_parse/pull/16).
 
 Thank you [@haileys](https://github.com/haileys) for your contribution!

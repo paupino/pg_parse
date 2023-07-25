@@ -13,12 +13,6 @@ impl SqlBuilder for A_ArrayExpr {
     }
 }
 
-impl SqlBuilder for A_Const {
-    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
-        SqlValue(self.val.inner()).build_with_context(buffer, Context::Constant)
-    }
-}
-
 impl SqlBuilderWithContext for A_Expr {
     fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         fn need_parenthesis(expr: &Option<Box<Node>>) -> bool {
@@ -132,31 +126,6 @@ impl SqlBuilderWithContext for A_Expr {
                 Expr(&**left).build(buffer)?;
                 buffer.push_str(", ");
                 Expr(&**right).build(buffer)?;
-                buffer.push(')');
-            }
-            A_Expr_Kind::AEXPR_OF => {
-                let left = must!(self.lexpr);
-                let right = must!(self.rexpr);
-                let right = node!(**right, Node::List);
-                let name = must!(self.name);
-                if name.is_empty() {
-                    return Err(SqlError::Unsupported("Empty name for AEXPR_OF".into()));
-                }
-                let name = string_value!(name[0]);
-
-                Expr(&**left).build(buffer)?;
-                if name.eq("=") {
-                    buffer.push_str(" IS OF ");
-                } else if name.eq("<>") {
-                    buffer.push_str(" IS NOT OF ");
-                } else {
-                    return Err(SqlError::Unsupported(format!(
-                        "Unexpected operator for AEXPR_OF: {}",
-                        name
-                    )));
-                }
-                buffer.push('(');
-                TypeList(&right.items).build(buffer)?;
                 buffer.push(')');
             }
             A_Expr_Kind::AEXPR_IN => {
@@ -301,10 +270,6 @@ impl SqlBuilderWithContext for A_Expr {
                         buffer.push_str(" AND ");
                     }
                 }
-            }
-            A_Expr_Kind::AEXPR_PAREN => {
-                // Dummy node for parenthesis
-                return Err(SqlError::Unsupported("AEXPR_PAREN".into()));
             }
         }
         Ok(())
@@ -531,6 +496,11 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 options = Some("DROP IDENTITY");
                 trailing_missing_ok = true;
             }
+
+            _ => todo!(), // AlterTableType::AT_SetCompression => {}
+                          // AlterTableType::AT_SetAccessMethod => {}
+                          // AlterTableType::AT_DetachPartitionFinalize => {}
+                          // AlterTableType::AT_ReAddStatistics => {}
         }
 
         if self.missing_ok && !trailing_missing_ok {
@@ -891,7 +861,7 @@ impl SqlBuilder for AlterObjectDependsStmt {
             buffer.push_str(" NO");
         }
         buffer.push_str(" DEPENDS ON EXTENSION ");
-        ColId(string_value!(extname.0)).build(buffer)?;
+        ColId(&**extname).build(buffer)?;
         Ok(())
     }
 }
@@ -978,7 +948,8 @@ impl SqlBuilder for AlterTableStmt {
         let mut context = Context::None;
 
         buffer.push_str("ALTER");
-        match *self.relkind {
+
+        match *self.objtype {
             ObjectType::OBJECT_TABLE => buffer.push_str(" TABLE"),
             ObjectType::OBJECT_FOREIGN_TABLE => buffer.push_str(" FOREIGN TABLE"),
             ObjectType::OBJECT_INDEX => buffer.push_str(" INDEX"),
@@ -1727,6 +1698,7 @@ impl SqlBuilder for CreateCastStmt {
             CoercionContext::COERCION_IMPLICIT => buffer.push_str(" AS IMPLICIT"),
             CoercionContext::COERCION_ASSIGNMENT => buffer.push_str(" AS ASSIGNMENT"),
             CoercionContext::COERCION_EXPLICIT => {}
+            CoercionContext::COERCION_PLPGSQL => todo!(),
         }
 
         Ok(())
@@ -2104,7 +2076,7 @@ impl SqlBuilder for CreateTableAsStmt {
         }
 
         // Relation kind
-        match *self.relkind {
+        match *self.objtype {
             ObjectType::OBJECT_TABLE => buffer.push_str(" TABLE"),
             ObjectType::OBJECT_MATVIEW => buffer.push_str(" MATERIALIZED VIEW"),
             // Unsupported here
@@ -2812,6 +2784,7 @@ impl SqlBuilder for FunctionParameter {
             FunctionParameterMode::FUNC_PARAM_INOUT => buffer.push_str("INOUT"),
             FunctionParameterMode::FUNC_PARAM_VARIADIC => buffer.push_str("VARIADIC"),
             FunctionParameterMode::FUNC_PARAM_TABLE => {} // No special annotation
+            FunctionParameterMode::FUNC_PARAM_DEFAULT => todo!(),
         }
         if let Some(ref name) = self.name {
             if !buffer.ends_with(' ') && !buffer.ends_with('(') {
@@ -3916,6 +3889,7 @@ impl SqlBuilder for RoleSpec {
             RoleSpecType::ROLESPEC_CURRENT_USER => buffer.push_str("CURRENT_USER"),
             RoleSpecType::ROLESPEC_SESSION_USER => buffer.push_str("SESSION_USER"),
             RoleSpecType::ROLESPEC_PUBLIC => buffer.push_str("public"),
+            RoleSpecType::ROLESPEC_CURRENT_ROLE => todo!(),
         }
         Ok(())
     }
@@ -4109,8 +4083,8 @@ impl SqlBuilder for SelectStmt {
                 }
             };
 
-            let all = if let Node::A_Const(ref a_const) = **limit {
-                matches!(a_const.val.0, Node::Null {})
+            let all = if let Node::A_Const { value } = **limit {
+                value
             } else {
                 false
             };
@@ -4312,38 +4286,38 @@ impl SqlBuilder for TypeCast {
                 buffer.push(')');
                 return Ok(());
             }
-            Node::A_Const(a_const) => {
-                let names = must!(type_name.names);
-                let names = node_vec_to_string_vec(names);
-                if names.len() == 2 && names[0].eq("pg_catalog") {
-                    let ty = names[1];
-                    if ty.eq("bpchar") && type_name.typmods.is_none() {
-                        buffer.push_str("char ");
-                        a_const.build(buffer)?;
-                        return Ok(());
-                    }
-                    if ty.eq("bool") {
-                        if let Node::String {
-                            value: Some(ref value),
-                        } = a_const.val.0
-                        {
-                            match &value[..] {
-                                "t" => buffer.push_str("true"),
-                                "f" => buffer.push_str("false"),
-                                _ => {}
-                            }
-                            return Ok(());
-                        }
-                    }
-                }
-
-                // This ensures negative values have wrapping parens
-                match a_const.val.0 {
-                    Node::Float { .. } => parenthesis = true,
-                    Node::Integer { value } if value < 0 => parenthesis = true,
-                    _ => {}
-                }
-            }
+            // Node::A_Const { value } => {
+            //     let names = must!(type_name.names);
+            //     let names = node_vec_to_string_vec(names);
+            //     if names.len() == 2 && names[0].eq("pg_catalog") {
+            //         let ty = names[1];
+            //         if ty.eq("bpchar") && type_name.typmods.is_none() {
+            //             buffer.push_str("char ");
+            //             a_const.build(buffer)?;
+            //             return Ok(());
+            //         }
+            //         if ty.eq("bool") {
+            //             if let Node::String {
+            //                 value: Some(ref value),
+            //             } = a_const.val.0
+            //             {
+            //                 match &value[..] {
+            //                     "t" => buffer.push_str("true"),
+            //                     "f" => buffer.push_str("false"),
+            //                     _ => {}
+            //                 }
+            //                 return Ok(());
+            //             }
+            //         }
+            //     }
+            //
+            //     // This ensures negative values have wrapping parens
+            //     match a_const.val.0 {
+            //         Node::Float { .. } => parenthesis = true,
+            //         Node::Integer { value } if value < 0 => parenthesis = true,
+            //         _ => {}
+            //     }
+            // }
             _ => {}
         }
 
@@ -4423,8 +4397,7 @@ impl SqlBuilder for TypeName {
                 }
                 "interval" if typmods.is_empty() => buffer.push_str("interval"),
                 "interval" if !typmods.is_empty() => {
-                    let a_const = node!(typmods[0], Node::A_Const);
-                    let fields = int_value!((*a_const.val).0);
+                    let fields = int_value!(typmods[0]);
 
                     buffer.push_str("interval");
 
@@ -4458,8 +4431,7 @@ impl SqlBuilder for TypeName {
 
                     if let Some(ref mods) = self.typmods {
                         if mods.len() == 2 {
-                            let a_const = node!(mods[1], Node::A_Const);
-                            let value = int_value!((*(*a_const).val).0);
+                            let value = int_value!(mods[1]);
                             if value != constants::interval::FULL_PRECISION {
                                 buffer.push_str(&format!("({})", value))
                             } else {
@@ -4486,7 +4458,7 @@ impl SqlBuilder for TypeName {
                     buffer.push_str(", ");
                 }
                 match typ {
-                    Node::A_Const(a_const) => a_const.build(buffer)?,
+                    Node::A_Const { .. } => typ.build(buffer)?,
                     Node::ParamRef(param_ref) => param_ref.build(buffer)?,
                     Node::ColumnRef(column_ref) => column_ref.build(buffer)?,
                     ty => return Err(SqlError::UnexpectedNodeType(ty.name())),
@@ -4679,8 +4651,7 @@ impl SqlBuilder for VariableSetStmt {
                         if args.is_empty() {
                             return Err(SqlError::Missing("args".into()));
                         }
-                        let arg = node!(args[0], Node::A_Const);
-                        StringLiteral(string_value!((*arg.val).0)).build(buffer)?;
+                        StringLiteral(string_value!(args[0])).build(buffer)?;
                     }
                     unsupported => {
                         return Err(SqlError::Unsupported(format!(
@@ -5234,6 +5205,7 @@ impl SqlBuilder for RowExpr {
                 return Err(SqlError::Unsupported("COERCE_EXPLICIT_CAST".into()))
             }
             CoercionForm::COERCE_IMPLICIT_CAST => {}
+            CoercionForm::COERCE_SQL_SYNTAX => todo!(),
         }
         buffer.push('(');
         ExprList(args).build(buffer)?;
@@ -5387,14 +5359,9 @@ impl SqlBuilder for XmlExpr {
                 Expr(&args[0]).build(buffer)?;
                 if let Node::TypeCast(ref tc) = args[1] {
                     if let Some(ref inner) = tc.arg {
-                        if let Node::A_Const(ref ac) = **inner {
-                            if let Node::String {
-                                value: Some(ref value),
-                            } = ac.val.0
-                            {
-                                if value.eq("t") {
-                                    buffer.push_str(" PRESERVE WHITESPACE");
-                                }
+                        if let Node::Boolean { value } = **inner {
+                            if value {
+                                buffer.push_str(" PRESERVE WHITESPACE");
                             }
                         }
                     }
@@ -5427,8 +5394,8 @@ impl SqlBuilder for XmlExpr {
                     .next()
                     .ok_or_else(|| SqlError::Missing("Missing element (2)".into()))?;
                 match arg {
-                    Node::A_Const(a_const) => {
-                        if let Node::Null {} = (*a_const.val).0 {
+                    Node::A_Const { value: is_null } => {
+                        if *is_null {
                             buffer.push_str("NO VALUE");
                         } else {
                             Expr(arg).build(buffer)?;
@@ -5440,8 +5407,7 @@ impl SqlBuilder for XmlExpr {
                 let arg = args
                     .next()
                     .ok_or_else(|| SqlError::Missing("Missing element (3)".into()))?;
-                let arg = node!(arg, Node::A_Const);
-                let value = int_value!((*arg.val).0);
+                let value = int_value!(*arg);
 
                 // Guessing a bit here
                 if value == 0 {

@@ -96,10 +96,10 @@ mod tests {
 
     #[test]
     fn it_can_deserialize_a_node_array() {
-        let json = "{ \"values\": [{ \"Null\": {} }, {}] }";
+        let json = "{ \"values\": [{ \"Boolean\": { \"boolval\": true } }, {}] }";
         let nodes: Nodes = serde_json::from_str(json).unwrap();
         assert_eq!(1, nodes.values.len());
-        assert!(matches!(nodes.values[0], Node::Null {}))
+        assert!(matches!(nodes.values[0], Node::Boolean { value: true }))
     }
 
     #[test]
@@ -118,12 +118,12 @@ mod tests {
 
     #[test]
     fn it_can_deserialize_an_optional_node_array_with_some() {
-        let json = "{ \"values\": [{ \"Null\": {} }, {}] }";
+        let json = "{ \"values\": [{ \"Boolean\": { \"boolval\": false } }, {}] }";
         let nodes: OptionalNodes = serde_json::from_str(json).unwrap();
         assert!(nodes.values.is_some());
         let values = nodes.values.unwrap();
         assert_eq!(1, values.len());
-        assert!(matches!(values[0], Node::Null {}))
+        assert!(matches!(values[0], Node::Boolean { value: false }))
     }
 
     #[test]

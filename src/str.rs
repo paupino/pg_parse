@@ -79,7 +79,11 @@ impl SqlBuilder for Node {
     fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
         match self {
             Node::A_ArrayExpr(a_array_expr) => a_array_expr.build(buffer)?,
-            Node::A_Const(a_const) => a_const.build(buffer)?,
+            Node::A_Const { value: is_null } => {
+                if *is_null {
+                    buffer.push_str("NULL")
+                }
+            }
             Node::A_Expr(a_expr) => a_expr.build_with_context(buffer, Context::None)?,
             Node::A_Indices(a_indices) => a_indices.build(buffer)?,
             Node::A_Indirection(a_indirection) => a_indirection.build(buffer)?,
@@ -305,10 +309,22 @@ impl SqlBuilder for Node {
                 }
             }
             Node::BitString { .. }
+            | Node::Boolean { .. }
             | Node::Float { .. }
             | Node::Integer { .. }
-            | Node::Null { .. }
             | Node::String { .. } => SqlValue(self).build_with_context(buffer, Context::None)?,
+
+            _ => todo!(), // Node::AlterDatabaseRefreshCollStmt(_) => {}
+                          // Node::CTECycleClause(_) => {}
+                          // Node::CTESearchClause(_) => {}
+                          // Node::MergeAction(_) => {}
+                          // Node::MergeStmt(_) => {}
+                          // Node::MergeWhenClause(_) => {}
+                          // Node::PLAssignStmt(_) => {}
+                          // Node::PublicationObjSpec(_) => {}
+                          // Node::PublicationTable(_) => {}
+                          // Node::ReturnStmt(_) => {}
+                          // Node::StatsElem(_) => {}
         }
         Ok(())
     }
@@ -328,11 +344,5 @@ mod tests {
     fn it_can_convert_a_value_node_to_string() {
         let node = Node::Integer { value: 5 };
         assert_eq!("Integer", node.name());
-    }
-
-    #[test]
-    fn it_can_convert_a_empty_node_to_string() {
-        let node = Node::Null {};
-        assert_eq!("Null", node.name());
     }
 }

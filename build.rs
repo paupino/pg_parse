@@ -208,10 +208,11 @@ fn make_aliases(
     node_types: &HashSet<String>,
     type_resolver: &mut TypeResolver,
 ) -> std::io::Result<()> {
-    const IGNORE: [&str; 5] = [
+    const IGNORE: [&str; 6] = [
         "BlockId",
         "ExpandedObjectHeader",
         "Name",
+        "ParallelVacuumState",
         "ParamListInfo",
         "VacAttrStatsP",
     ];

@@ -53,7 +53,6 @@ impl SqlBuilderWithContext for SqlValue<'_> {
                     return Err(SqlError::Unsupported("Empty bitstring".into()));
                 }
             }
-            Node::Null {} => buffer.push_str("NULL"),
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
         }
         Ok(())
@@ -641,7 +640,7 @@ impl SqlBuilder for Expr<'_> {
             Node::FuncCall(inner) => inner.build(buffer)?,
             Node::XmlExpr(inner) => inner.build(buffer)?,
             Node::TypeCast(inner) => inner.build(buffer)?,
-            Node::A_Const(inner) => inner.build(buffer)?,
+            Node::A_Const { .. } => self.0.build(buffer)?,
             Node::ColumnRef(inner) => inner.build(buffer)?,
             Node::A_Expr(inner) => inner.build_with_context(buffer, Context::None)?,
             Node::CaseExpr(inner) => inner.build(buffer)?,
@@ -806,12 +805,9 @@ impl SqlBuilder for VarList<'_> {
             }
             match node {
                 Node::ParamRef(param) => param.build(buffer)?,
-                Node::A_Const(a_const) => match &(*a_const.val).0 {
-                    Node::Integer { value } => buffer.push_str(&format!("{}", *value)),
-                    Node::Float { value: Some(value) } => buffer.push_str(value),
-                    Node::String { value: Some(value) } => BooleanOrString(value).build(buffer)?,
-                    unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
-                },
+                Node::Integer { value } => buffer.push_str(&format!("{}", *value)),
+                Node::Float { value: Some(value) } => buffer.push_str(value),
+                Node::String { value: Some(value) } => BooleanOrString(value).build(buffer)?,
                 unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
             }
         }
@@ -865,10 +861,9 @@ impl SqlBuilder for TransactionModeList<'_> {
 
             let name = must!(item.defname);
             let arg = must!(item.arg);
-            let arg = node!(**arg, Node::A_Const);
             match &name[..] {
                 "transaction_isolation" => {
-                    let value = string_value!((*arg.val).0);
+                    let value = string_value!(&**arg);
                     buffer.push_str("ISOLATION LEVEL ");
                     match &value[..] {
                         "read uncommitted" => buffer.push_str("READ UNCOMMITTED"),
@@ -884,7 +879,7 @@ impl SqlBuilder for TransactionModeList<'_> {
                     }
                 }
                 "transaction_read_only" => {
-                    match &(*arg.val).0 {
+                    match &**arg {
                         Node::Integer { value } if *value == 0 => {
                             buffer.push_str("READ WRITE");
                         }
@@ -895,7 +890,7 @@ impl SqlBuilder for TransactionModeList<'_> {
                     };
                 }
                 "transaction_deferrable" => {
-                    match &(*arg.val).0 {
+                    match &**arg {
                         Node::Integer { value } if *value == 0 => {
                             buffer.push_str("NOT DEFERRABLE");
                         }
@@ -947,7 +942,7 @@ impl SqlBuilder for SeqOptElem<'_> {
             }
             "cycle" => {
                 let arg = must!(self.0.arg);
-                let arg = int_value!(**arg);
+                let arg = int_value!(&**arg);
                 match arg {
                     0 => buffer.push_str("NO CYCLE"),
                     1 => buffer.push_str("CYCLE"),
