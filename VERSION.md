@@ -6,6 +6,9 @@ Modified:
 Please note, that this downstream release modifies the nodes generated. Since this is a breaking change, I've
 started to use semver.
 
+Also, it is important to note that with this release a number of old features have been dropped. For example, `?` is no longer 
+a valid literal as of `14-3.0.0`.
+
 # Version 0.10
 
 Modified:
