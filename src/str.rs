@@ -46,15 +46,11 @@ impl fmt::Display for SqlError {
 impl std::error::Error for SqlError {}
 
 trait SqlBuilder {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError>;
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError>;
 }
 
 trait SqlBuilderWithContext {
-    fn build_with_context(
-        &self,
-        buffer: &mut String,
-        context: Context,
-    ) -> core::result::Result<(), SqlError>;
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError>;
 }
 
 impl fmt::Display for Node {
@@ -82,8 +78,10 @@ impl SqlBuilder for Node {
         match self {
             Node::A_ArrayExpr(a_array_expr) => a_array_expr.build(buffer)?,
             Node::A_Const { val, isnull } => {
-                if *isnull {
-                    buffer.push_str("NULL")
+                if let Some(isnull) = isnull {
+                    if *isnull {
+                        buffer.push_str("NULL")
+                    }
                 } else {
                     val.build(buffer)?
                 }

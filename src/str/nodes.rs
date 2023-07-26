@@ -38,6 +38,7 @@ impl SqlBuilder for ConstValue {
             ConstValue::BitString(value) => Node::BitString {
                 bsval: Some(value.clone()),
             },
+            ConstValue::Null => return Ok(()),
         };
         SqlValue(&node).build_with_context(buffer, Context::Constant)
     }
@@ -4113,8 +4114,12 @@ impl SqlBuilder for SelectStmt {
                 }
             };
 
-            let all = if let Node::A_Const { isnull, .. } = **limit {
-                isnull
+            let all = if let Node::A_Const {
+                isnull: Some(is_null),
+                ..
+            } = **limit
+            {
+                is_null
             } else {
                 false
             };
@@ -4317,18 +4322,18 @@ impl SqlBuilder for TypeCast {
                 return Ok(());
             }
 
-            Node::A_Const { val: Some(val), .. } => {
+            Node::A_Const { val: value, .. } => {
                 let names = must!(type_name.names);
                 let names = node_vec_to_string_vec(names);
                 if names.len() == 2 && names[0].eq("pg_catalog") {
                     let ty = names[1];
                     if ty.eq("bpchar") && type_name.typmods.is_none() {
                         buffer.push_str("char ");
-                        val.build(buffer)?;
+                        value.build(buffer)?;
                         return Ok(());
                     }
 
-                    if let ConstValue::Bool(value) = val {
+                    if let ConstValue::Bool(value) = value {
                         if *value {
                             buffer.push_str("true");
                         } else {
@@ -4339,7 +4344,7 @@ impl SqlBuilder for TypeCast {
                 }
 
                 // This ensures negative values have wrapping parens
-                match val {
+                match value {
                     ConstValue::Float(_) => parenthesis = true,
                     ConstValue::Integer(value) if *value < 0 => parenthesis = true,
                     _ => {}
@@ -4500,7 +4505,9 @@ impl SqlBuilder for TypeName {
             for bound in bounds {
                 buffer.push('[');
                 match &bound {
-                    Node::Integer { ival } if *ival >= 0 => buffer.push_str(&(*ival).to_string()),
+                    Node::Integer { ival: value } if *value > 0 => {
+                        buffer.push_str(&(*value).to_string())
+                    }
                     _ => {} // Ignore
                 }
                 buffer.push(']');
@@ -5422,7 +5429,7 @@ impl SqlBuilder for XmlExpr {
                     .ok_or_else(|| SqlError::Missing("Missing element (2)".into()))?;
                 match arg {
                     Node::A_Const { isnull, .. } => {
-                        if *isnull {
+                        if isnull.unwrap_or_default() {
                             buffer.push_str("NO VALUE");
                         } else {
                             Expr(arg).build(buffer)?;

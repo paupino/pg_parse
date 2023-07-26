@@ -355,19 +355,28 @@ fn make_nodes(
             writeln!(out, "    {} {{ }},", name)?;
             continue;
         }
-        // May have many now
+
+        // These may have many fields, though we may want to handle that explicitly
         writeln!(out, "    {} {{", name)?;
         for field in &def.fields {
             let field_name = field.name.as_ref().unwrap();
             let resolved_type = type_resolver.resolve(field.c_type.as_ref().unwrap());
-            if name.eq("A_Const") {
+            let make_optional = if name.eq("A_Const") {
                 if resolved_type.contains("ConstValue") {
-                    writeln!(out, "        #[serde(default, flatten)]")?;
+                    writeln!(out, "        #[serde(flatten)]")?;
+                    false
                 } else {
-                    writeln!(out, "        #[serde(default)]")?;
+                    true
                 }
+            } else {
+                false
+            };
+            writeln!(out, "        #[serde(default)]")?;
+            if make_optional {
+                writeln!(out, "        {field_name}: Option<{resolved_type}>,")?;
+            } else {
+                writeln!(out, "        {field_name}: {resolved_type},")?;
             }
-            writeln!(out, "        {field_name}: {resolved_type},")?;
         }
         writeln!(out, "    }},")?;
     }
@@ -507,7 +516,8 @@ impl TypeResolver {
         primitive.insert("List*", "Option<Vec<Node>>");
         primitive.insert("[]Node", "Vec<Node>");
         primitive.insert("Node*", "Option<Box<Node>>");
-        primitive.insert("Node", "Option<ConstValue>");
+        // Special case for ConstValue
+        primitive.insert("Node", "ConstValue");
         primitive.insert("Expr*", "Option<Box<Node>>");
 
         // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.

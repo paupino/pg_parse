@@ -55,8 +55,8 @@ fn it_correctly_converts_to_string_for_select_tests() {
         "SELECT sum(price_cents) FROM products",
         "SELECT ARRAY(SELECT id FROM products)::bigint[]",
         "SELECT m.name AS mname, pname FROM manufacturers m, LATERAL get_product_names(m.id) pname",
-        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON true",
-        "SELECT * FROM tb_test_main mh INNER JOIN LATERAL (SELECT ftnrm.* FROM test ftnrm WHERE ftnrm.hizmet_id = mh.id UNION ALL SELECT ftarc.* FROM test.test2 ftarc WHERE ftarc.hizmet_id = mh.id) ft ON true",
+        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON TRUE",
+        "SELECT * FROM tb_test_main mh INNER JOIN LATERAL (SELECT ftnrm.* FROM test ftnrm WHERE ftnrm.hizmet_id = mh.id UNION ALL SELECT ftarc.* FROM test.test2 ftarc WHERE ftarc.hizmet_id = mh.id) ft ON TRUE",
         "SELECT x, y FROM a CROSS JOIN b",
         "SELECT x, y FROM a NATURAL INNER JOIN b",
         "SELECT x, y FROM a LEFT JOIN b ON 1 > 0",
@@ -69,7 +69,7 @@ fn it_correctly_converts_to_string_for_select_tests() {
         "SELECT count(*) FROM x WHERE y IS NOT NULL",
         "SELECT count(DISTINCT a) FROM x WHERE y IS NOT NULL",
         "SELECT CASE WHEN a.status = 1 THEN 'active' WHEN a.status = 2 THEN 'inactive' END FROM accounts a",
-        "SELECT CASE 1 > 0 WHEN true THEN 'ok' ELSE NULL END",
+        "SELECT CASE 1 > 0 WHEN TRUE THEN 'ok' ELSE NULL END",
         "SELECT CASE WHEN a.status = 1 THEN 'active' WHEN a.status = 2 THEN 'inactive' ELSE 'unknown' END FROM accounts a",
         "SELECT * FROM accounts WHERE status = CASE WHEN x = 1 THEN 'active' ELSE 'inactive' END",
         "SELECT CASE WHEN EXISTS (SELECT 1) THEN 1 ELSE 2 END",
@@ -116,7 +116,7 @@ fn it_correctly_converts_to_string_for_select_tests() {
         "SELECT CAST(1 + 3 AS int8)",
         "SELECT $1::regclass",
         "SELECT table_field::bool, table_field::boolean FROM t",
-        "SELECT true, false",
+        "SELECT TRUE, FALSE",
         "SELECT 1::boolean, 0::boolean",
         "SELECT $5",
         "SELECT $1",
@@ -125,7 +125,7 @@ fn it_correctly_converts_to_string_for_select_tests() {
         "SELECT name::varchar FROM people",
         "SELECT age::numeric(5, 2) FROM people",
         "SELECT age::numeric FROM people",
-        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON true",
+        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON TRUE",
         "SELECT * FROM a CROSS JOIN (b CROSS JOIN c)",
         "SELECT 1 FOR UPDATE",
         "SELECT 1 FOR UPDATE NOWAIT",
@@ -211,8 +211,8 @@ fn it_correctly_converts_to_string_for_with_tests() {
         "WITH t AS (SELECT random() AS x FROM generate_series(1, 3)) SELECT * FROM t",
         "WITH RECURSIVE search_graph(id, link, data, depth, path, cycle) AS (SELECT g.id, g.link, g.data, 1, ARRAY[ROW(g.f1, g.f2)], false FROM graph g UNION ALL SELECT g.id, g.link, g.data, sg.depth + 1, path || ROW(g.f1, g.f2), ROW(g.f1, g.f2) = ANY(path) FROM graph g, search_graph sg WHERE g.id = sg.link AND NOT cycle) SELECT id, data, link FROM search_graph",
         "WITH moved AS (DELETE FROM employees WHERE manager_name = 'Mary') INSERT INTO employees_of_mary SELECT * FROM moved",
-        "WITH archived AS (DELETE FROM employees WHERE manager_name = 'Mary') UPDATE users SET archived = true WHERE users.id IN (SELECT user_id FROM moved)",
-        "WITH archived AS (DELETE FROM employees WHERE manager_name = 'Mary' RETURNING user_id) UPDATE users SET archived = true FROM archived WHERE archived.user_id = id RETURNING id",
+        "WITH archived AS (DELETE FROM employees WHERE manager_name = 'Mary') UPDATE users SET archived = TRUE WHERE users.id IN (SELECT user_id FROM moved)",
+        "WITH archived AS (DELETE FROM employees WHERE manager_name = 'Mary' RETURNING user_id) UPDATE users SET archived = TRUE FROM archived WHERE archived.user_id = id RETURNING id",
         "WITH archived AS (DELETE FROM employees WHERE manager_name = 'Mary') DELETE FROM users WHERE users.id IN (SELECT user_id FROM moved)",
     ];
     execute_tests(tests)
@@ -563,8 +563,8 @@ fn it_correctly_converts_to_string_for_extension_tests() {
 #[test]
 fn it_correctly_converts_to_string_for_multi_statements() {
     let tests = [
-        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON true; INSERT INTO manufacturers_daily (a, b) SELECT a, b FROM manufacturers",
-        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON true; UPDATE users SET name = 'bobby; drop tables'; INSERT INTO manufacturers_daily (a, b) SELECT a, b FROM manufacturers",
+        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON TRUE; INSERT INTO manufacturers_daily (a, b) SELECT a, b FROM manufacturers",
+        "SELECT m.name AS mname, pname FROM manufacturers m LEFT JOIN LATERAL get_product_names(m.id) pname ON TRUE; UPDATE users SET name = 'bobby; drop tables'; INSERT INTO manufacturers_daily (a, b) SELECT a, b FROM manufacturers",
     ];
     execute_tests(tests)
 }
