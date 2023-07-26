@@ -11,6 +11,13 @@ pub(in crate::str) struct SqlValue<'a>(pub &'a Node);
 impl SqlBuilderWithContext for SqlValue<'_> {
     fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         match self.0 {
+            Node::Boolean { boolval } => {
+                if *boolval {
+                    buffer.push_str("TRUE");
+                } else {
+                    buffer.push_str("FALSE");
+                }
+            }
             Node::Integer { ival } => buffer.push_str(&format!("{}", *ival)),
             Node::Float { fval } => {
                 if let Some(value) = fval {
@@ -640,7 +647,9 @@ impl SqlBuilder for Expr<'_> {
             Node::FuncCall(inner) => inner.build(buffer)?,
             Node::XmlExpr(inner) => inner.build(buffer)?,
             Node::TypeCast(inner) => inner.build(buffer)?,
-            Node::A_Const { .. } => self.0.build(buffer)?,
+            Node::A_Const { val, .. } => {
+                SqlValue(&**val).build_with_context(buffer, Context::Constant)?
+            }
             Node::ColumnRef(inner) => inner.build(buffer)?,
             Node::A_Expr(inner) => inner.build_with_context(buffer, Context::None)?,
             Node::CaseExpr(inner) => inner.build(buffer)?,

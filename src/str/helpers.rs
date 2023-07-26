@@ -18,6 +18,15 @@ macro_rules! node {
     };
 }
 
+macro_rules! a_const_val {
+    ($expr:expr) => {
+        match &$expr {
+            Node::A_Const { val, .. } => val,
+            unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+        }
+    };
+}
+
 macro_rules! iter_only {
     ($expr:expr, $ty:path) => {
         $expr.iter().filter_map(|n| match n {

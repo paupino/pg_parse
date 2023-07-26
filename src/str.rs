@@ -83,7 +83,7 @@ impl SqlBuilder for Node {
                 if *isnull {
                     buffer.push_str("NULL")
                 } else {
-                    (**val).build(buffer)?
+                    SqlValue(&**val).build_with_context(buffer, Context::Constant)?
                 }
             }
             Node::A_Expr(a_expr) => a_expr.build_with_context(buffer, Context::None)?,
