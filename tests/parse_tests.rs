@@ -1,4 +1,4 @@
-use pg_parse::ast::{ConstrType, InsertStmt, List, Node, ParamRef, SelectStmt, Value};
+use pg_parse::ast::{ConstValue, ConstrType, InsertStmt, List, Node, ParamRef, SelectStmt, Value};
 
 #[test]
 fn it_can_generate_a_create_index_ast() {
@@ -75,13 +75,19 @@ fn it_can_generate_a_create_table_ast() {
             };
             assert_eq!(mods.len(), 2, "Mods length");
             match &mods[0] {
-                Node::Integer { ival: value } => {
+                Node::A_Const {
+                    val: Some(ConstValue::Integer(value)),
+                    ..
+                } => {
                     assert_eq!(*value, 5);
                 }
                 unexpected => panic!("Unexpected type for mods[0] {:?}", unexpected),
             }
             match &mods[1] {
-                Node::Integer { ival: value } => {
+                Node::A_Const {
+                    val: Some(ConstValue::Integer(value)),
+                    ..
+                } => {
                     assert_eq!(*value, 12);
                 }
                 unexpected => panic!("Unexpected type for mods[0] {:?}", unexpected),
