@@ -359,13 +359,15 @@ fn make_nodes(
         writeln!(out, "    {} {{", name)?;
         for field in &def.fields {
             let field_name = field.name.as_ref().unwrap();
-            // writeln!(out, "        #[serde(rename = \"{}\")]", field_name,)?;
-            writeln!(
-                out,
-                "        {}: {},",
-                field_name,
-                type_resolver.resolve(field.c_type.as_ref().unwrap())
-            )?;
+            let resolved_type = type_resolver.resolve(field.c_type.as_ref().unwrap());
+            if name.eq("A_Const") {
+                if resolved_type.contains("ConstValue") {
+                    writeln!(out, "        #[serde(default, flatten)]")?;
+                } else {
+                    writeln!(out, "        #[serde(default)]")?;
+                }
+            }
+            writeln!(out, "        {field_name}: {resolved_type},")?;
         }
         writeln!(out, "    }},")?;
     }
@@ -505,7 +507,7 @@ impl TypeResolver {
         primitive.insert("List*", "Option<Vec<Node>>");
         primitive.insert("[]Node", "Vec<Node>");
         primitive.insert("Node*", "Option<Box<Node>>");
-        primitive.insert("Node", "Box<Node>");
+        primitive.insert("Node", "Option<ConstValue>");
         primitive.insert("Expr*", "Option<Box<Node>>");
 
         // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.

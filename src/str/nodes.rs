@@ -13,6 +13,35 @@ impl SqlBuilder for A_ArrayExpr {
     }
 }
 
+impl SqlBuilder for &Option<ConstValue> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
+        if let Some(value) = self {
+            (*value).build(buffer)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl SqlBuilder for ConstValue {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
+        let node = match self {
+            ConstValue::Bool(value) => Node::Boolean { boolval: *value },
+            ConstValue::Integer(value) => Node::Integer { ival: *value },
+            ConstValue::Float(value) => Node::Float {
+                fval: Some(value.clone()),
+            },
+            ConstValue::String(value) => Node::String {
+                sval: Some(value.clone()),
+            },
+            ConstValue::BitString(value) => Node::BitString {
+                bsval: Some(value.clone()),
+            },
+        };
+        SqlValue(&node).build_with_context(buffer, Context::Constant)
+    }
+}
+
 impl SqlBuilderWithContext for A_Expr {
     fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         fn need_parenthesis(expr: &Option<Box<Node>>) -> bool {
@@ -1589,7 +1618,7 @@ impl SqlBuilder for CopyStmt {
                             let mut use_default_impl = false;
                             let mut value = None;
                             if let Some(arg) = &element.arg {
-                                let val = int_value!(**arg);
+                                let val = *int_value!(**arg);
                                 if val == 1 {
                                     value = Some(val);
                                 } else {
@@ -4287,19 +4316,19 @@ impl SqlBuilder for TypeCast {
                 return Ok(());
             }
 
-            Node::A_Const { val, .. } => {
+            Node::A_Const { val: Some(val), .. } => {
                 let names = must!(type_name.names);
                 let names = node_vec_to_string_vec(names);
                 if names.len() == 2 && names[0].eq("pg_catalog") {
                     let ty = names[1];
                     if ty.eq("bpchar") && type_name.typmods.is_none() {
                         buffer.push_str("char ");
-                        SqlValue(&**val).build_with_context(buffer, Context::Constant)?;
+                        val.build(buffer)?;
                         return Ok(());
                     }
 
-                    if let Node::Boolean { boolval } = &**val {
-                        if *boolval {
+                    if let ConstValue::Bool(value) = val {
+                        if *value {
                             buffer.push_str("true");
                         } else {
                             buffer.push_str("false");
@@ -4309,9 +4338,9 @@ impl SqlBuilder for TypeCast {
                 }
 
                 // This ensures negative values have wrapping parens
-                match &**val {
-                    Node::Float { .. } => parenthesis = true,
-                    Node::Integer { ival } if *ival < 0 => parenthesis = true,
+                match val {
+                    ConstValue::Float(_) => parenthesis = true,
+                    ConstValue::Integer(value) if *value < 0 => parenthesis = true,
                     _ => {}
                 }
             }
@@ -4395,8 +4424,7 @@ impl SqlBuilder for TypeName {
                 }
                 "interval" if typmods.is_empty() => buffer.push_str("interval"),
                 "interval" if !typmods.is_empty() => {
-                    let a_const = a_const_val!(typmods[0]);
-                    let fields = int_value!(&**a_const);
+                    let fields = *const_integer!(typmods[0]);
 
                     buffer.push_str("interval");
 
@@ -4430,8 +4458,7 @@ impl SqlBuilder for TypeName {
 
                     if let Some(ref mods) = self.typmods {
                         if mods.len() == 2 {
-                            let a_const = a_const_val!(mods[1]);
-                            let value = int_value!(&**a_const);
+                            let value = *const_integer!(mods[1]);
                             if value != constants::interval::FULL_PRECISION {
                                 buffer.push_str(&format!("({})", value))
                             } else {
@@ -4458,9 +4485,7 @@ impl SqlBuilder for TypeName {
                     buffer.push_str(", ");
                 }
                 match typ {
-                    Node::A_Const { val, .. } => {
-                        SqlValue(&**val).build_with_context(buffer, Context::Constant)?
-                    }
+                    Node::A_Const { val, .. } => val.build(buffer)?,
                     Node::ParamRef(param_ref) => param_ref.build(buffer)?,
                     Node::ColumnRef(column_ref) => column_ref.build(buffer)?,
                     ty => return Err(SqlError::UnexpectedNodeType(ty.name())),
@@ -4651,8 +4676,8 @@ impl SqlBuilder for VariableSetStmt {
                         if args.is_empty() {
                             return Err(SqlError::Missing("args".into()));
                         }
-                        let arg = a_const_val!(args[0]);
-                        StringLiteral(string_value!(&**arg)).build(buffer)?;
+                        let literal = const_string!(args[0]);
+                        StringLiteral(literal).build(buffer)?;
                     }
                     unsupported => {
                         return Err(SqlError::Unsupported(format!(
@@ -5408,8 +5433,7 @@ impl SqlBuilder for XmlExpr {
                 let arg = args
                     .next()
                     .ok_or_else(|| SqlError::Missing("Missing element (3)".into()))?;
-                let arg = a_const_val!(arg);
-                let value = int_value!(&**arg);
+                let value = *const_integer!(arg);
 
                 // Guessing a bit here
                 if value == 0 {

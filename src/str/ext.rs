@@ -647,9 +647,7 @@ impl SqlBuilder for Expr<'_> {
             Node::FuncCall(inner) => inner.build(buffer)?,
             Node::XmlExpr(inner) => inner.build(buffer)?,
             Node::TypeCast(inner) => inner.build(buffer)?,
-            Node::A_Const { val, .. } => {
-                SqlValue(&**val).build_with_context(buffer, Context::Constant)?
-            }
+            Node::A_Const { val, .. } => val.build(buffer)?,
             Node::ColumnRef(inner) => inner.build(buffer)?,
             Node::A_Expr(inner) => inner.build_with_context(buffer, Context::None)?,
             Node::CaseExpr(inner) => inner.build(buffer)?,
@@ -1036,7 +1034,7 @@ impl SqlBuilder for AlterIdentityColumnOptionList<'_> {
                 "generated" => {
                     buffer.push_str("SET GENERATED ");
                     let arg = must!(elem.arg);
-                    let arg = int_value!(**arg);
+                    let arg = *int_value!(**arg);
                     let arg = char::from(arg as u8);
                     match arg {
                         constants::ATTRIBUTE_IDENTITY_ALWAYS => buffer.push_str("ALWAYS"),
@@ -1262,7 +1260,7 @@ impl SqlBuilder for AggrArgs<'_> {
                     self.0.len()
                 )));
             }
-            let order_by_pos = int_value!(self.0[1]) as usize;
+            let order_by_pos = *int_value!(self.0[1]) as usize;
             for (index, item) in iter_only!(args.items, Node::FunctionParameter).enumerate() {
                 if index == order_by_pos {
                     if index > 0 {

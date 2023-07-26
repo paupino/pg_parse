@@ -4,6 +4,8 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
+use serde::Deserializer;
+
 // Type aliases
 pub type bits32 = u32;
 
@@ -12,6 +14,27 @@ include!(concat!(env!("OUT_DIR"), "/ast.rs"));
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Value(pub Node);
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConstValue {
+    Bool(bool),
+    Integer(i64),
+    Float(String),
+    String(String),
+    BitString(String),
+}
+
+impl ConstValue {
+    pub fn name(&self) -> &'static str {
+        match self {
+            ConstValue::Bool(_) => "ConstBool",
+            ConstValue::Integer(_) => "ConstInteger",
+            ConstValue::Float(_) => "ConstFloat",
+            ConstValue::String(_) => "ConstString",
+            ConstValue::BitString(_) => "ConstBitString",
+        }
+    }
+}
 
 impl Value {
     pub fn inner(&self) -> &Node {

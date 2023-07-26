@@ -23,6 +23,7 @@ enum Context {
 #[derive(Debug)]
 enum SqlError {
     Missing(String),
+    UnexpectedConstValue(&'static str),
     UnexpectedNodeType(&'static str),
     UnexpectedObjectType(ObjectType),
     Unreachable,
@@ -33,6 +34,7 @@ impl fmt::Display for SqlError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SqlError::Missing(field) => write!(f, "Missing field: {}", field),
+            SqlError::UnexpectedConstValue(value) => write!(f, "Unexpected const value: {}", value),
             SqlError::UnexpectedNodeType(node) => write!(f, "Unexpected node type: {}", node),
             SqlError::UnexpectedObjectType(ty) => write!(f, "Unexpected object type: {:?}", ty),
             SqlError::Unreachable => write!(f, "Unreachable"),
@@ -83,7 +85,7 @@ impl SqlBuilder for Node {
                 if *isnull {
                     buffer.push_str("NULL")
                 } else {
-                    SqlValue(&**val).build_with_context(buffer, Context::Constant)?
+                    val.build(buffer)?
                 }
             }
             Node::A_Expr(a_expr) => a_expr.build_with_context(buffer, Context::None)?,

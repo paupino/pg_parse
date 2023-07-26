@@ -18,10 +18,25 @@ macro_rules! node {
     };
 }
 
-macro_rules! a_const_val {
+macro_rules! const_integer {
     ($expr:expr) => {
         match &$expr {
-            Node::A_Const { val, .. } => val,
+            Node::A_Const { val: Some(val), .. } => match &val {
+                crate::ast::ConstValue::Integer(value) => value,
+                unexpected => return Err(SqlError::UnexpectedConstValue(unexpected.name())),
+            },
+            unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+        }
+    };
+}
+
+macro_rules! const_string {
+    ($expr:expr) => {
+        match &$expr {
+            Node::A_Const { val: Some(val), .. } => match &val {
+                crate::ast::ConstValue::String(value) => value,
+                unexpected => return Err(SqlError::UnexpectedConstValue(unexpected.name())),
+            },
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
         }
     };
@@ -39,7 +54,7 @@ macro_rules! iter_only {
 macro_rules! int_value {
     ($expr:expr) => {
         match &$expr {
-            Node::Integer { ival } => *ival,
+            Node::Integer { ival } => ival,
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
         }
     };
