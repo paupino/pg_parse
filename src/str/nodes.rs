@@ -25,6 +25,7 @@ impl SqlBuilder for &Option<ConstValue> {
 
 impl SqlBuilder for ConstValue {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
+        // TODO: Reverse this generation to avoid the need for clones
         let node = match self {
             ConstValue::Bool(value) => Node::Boolean { boolval: *value },
             ConstValue::Integer(value) => Node::Integer { ival: *value },
