@@ -11,14 +11,14 @@ pub(in crate::str) struct SqlValue<'a>(pub &'a Node);
 impl SqlBuilderWithContext for SqlValue<'_> {
     fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         match self.0 {
-            Node::Integer { value } => buffer.push_str(&format!("{}", *value)),
-            Node::Float { value } => {
-                if let Some(value) = value {
+            Node::Integer { ival } => buffer.push_str(&format!("{}", *ival)),
+            Node::Float { fval } => {
+                if let Some(value) = fval {
                     buffer.push_str(value);
                 }
             }
-            Node::String { value } => {
-                if let Some(value) = value {
+            Node::String { sval } => {
+                if let Some(value) = sval {
                     match context {
                         Context::Identifier => buffer.push_str(&quote_identifier(value)),
                         Context::Constant => StringLiteral(value).build(buffer)?,
@@ -26,8 +26,8 @@ impl SqlBuilderWithContext for SqlValue<'_> {
                     }
                 }
             }
-            Node::BitString { value } => {
-                if let Some(value) = value {
+            Node::BitString { bsval } => {
+                if let Some(value) = bsval {
                     let mut chars = value.chars();
                     if let Some(c) = chars.next() {
                         match c {
@@ -117,7 +117,7 @@ impl SqlBuilder for DefArg<'_> {
             Node::Float { .. } | Node::Integer { .. } => {
                 SqlValue(self.0).build_with_context(buffer, Context::None)?
             }
-            Node::String { value: Some(value) } => {
+            Node::String { sval: Some(value) } => {
                 if !self.1 && value.eq("none") {
                     buffer.push_str("NONE");
                 } else if is_keyword(value) {
@@ -397,7 +397,7 @@ impl SqlBuilder for SubqueryOperator<'_> {
         let list = self.0;
         if list.len() == 1 {
             if let Node::String {
-                value: Some(ref value),
+                sval: Some(ref value),
             } = list[0]
             {
                 let handled = match &value[..] {
@@ -448,7 +448,7 @@ impl SqlBuilder for QualifiedOperator<'_> {
         let list = self.0;
         if list.len() == 1 {
             if let Node::String {
-                value: Some(ref value),
+                sval: Some(ref value),
             } = list[0]
             {
                 if is_operator(value) {
@@ -574,9 +574,9 @@ impl SqlBuilder for Indirection<'_> {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         for node in self.0.iter().skip(self.1) {
             match node {
-                Node::String { value } => {
+                Node::String { sval } => {
                     // Column label
-                    if let Some(value) = value {
+                    if let Some(value) = sval {
                         buffer.push('.');
                         buffer.push_str(&quote_identifier(value));
                     }
@@ -736,8 +736,8 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
         let arg = must!(self.0.arg);
         if name.eq("strict") {
             match &**arg {
-                Node::Integer { value: 0 } => buffer.push_str("CALLED ON NULL INPUT"),
-                Node::Integer { value: 1 } => buffer.push_str("RETURNS NULL ON NULL INPUT"),
+                Node::Integer { ival: 0 } => buffer.push_str("CALLED ON NULL INPUT"),
+                Node::Integer { ival: 1 } => buffer.push_str("RETURNS NULL ON NULL INPUT"),
                 unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
             }
         } else if name.eq("volatility") {
@@ -755,14 +755,14 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
             }
         } else if name.eq("security") {
             match &**arg {
-                Node::Integer { value: 0 } => buffer.push_str("SECURITY INVOKER"),
-                Node::Integer { value: 1 } => buffer.push_str("SECURITY DEFINER"),
+                Node::Integer { ival: 0 } => buffer.push_str("SECURITY INVOKER"),
+                Node::Integer { ival: 1 } => buffer.push_str("SECURITY DEFINER"),
                 unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
             }
         } else if name.eq("leakproof") {
             match &**arg {
-                Node::Integer { value: 0 } => buffer.push_str("NOT LEAKPROOF"),
-                Node::Integer { value: 1 } => buffer.push_str("LEAKPROOF"),
+                Node::Integer { ival: 0 } => buffer.push_str("NOT LEAKPROOF"),
+                Node::Integer { ival: 1 } => buffer.push_str("LEAKPROOF"),
                 unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
             }
         } else if name.eq("cost") {
@@ -805,9 +805,11 @@ impl SqlBuilder for VarList<'_> {
             }
             match node {
                 Node::ParamRef(param) => param.build(buffer)?,
-                Node::Integer { value } => buffer.push_str(&format!("{}", *value)),
-                Node::Float { value: Some(value) } => buffer.push_str(value),
-                Node::String { value: Some(value) } => BooleanOrString(value).build(buffer)?,
+                Node::Integer { ival } => buffer.push_str(&format!("{}", *ival)),
+                Node::Float { fval: Some(value) } => buffer.push_str(value),
+                Node::Boolean { boolval } if *boolval => buffer.push_str("TRUE"),
+                Node::Boolean { boolval } if !*boolval => buffer.push_str("FALSE"),
+                Node::String { sval: Some(value) } => BooleanOrString(value).build(buffer)?,
                 unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
             }
         }
@@ -880,10 +882,10 @@ impl SqlBuilder for TransactionModeList<'_> {
                 }
                 "transaction_read_only" => {
                     match &**arg {
-                        Node::Integer { value } if *value == 0 => {
+                        Node::Integer { ival } if *ival == 0 => {
                             buffer.push_str("READ WRITE");
                         }
-                        Node::Integer { value } if *value == 1 => {
+                        Node::Integer { ival } if *ival == 1 => {
                             buffer.push_str("READ ONLY");
                         }
                         unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
@@ -891,10 +893,10 @@ impl SqlBuilder for TransactionModeList<'_> {
                 }
                 "transaction_deferrable" => {
                     match &**arg {
-                        Node::Integer { value } if *value == 0 => {
+                        Node::Integer { ival } if *ival == 0 => {
                             buffer.push_str("NOT DEFERRABLE");
                         }
-                        Node::Integer { value } if *value == 1 => {
+                        Node::Integer { ival } if *ival == 1 => {
                             buffer.push_str("DEFERRABLE");
                         }
                         unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
@@ -916,8 +918,8 @@ pub(in crate::str) struct NumericOnly<'a>(pub &'a Node);
 impl SqlBuilder for NumericOnly<'_> {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
-            Node::Integer { value } => buffer.push_str(&format!("{}", *value)),
-            Node::Float { value: Some(value) } => buffer.push_str(value),
+            Node::Integer { ival } => buffer.push_str(&format!("{}", *ival)),
+            Node::Float { fval: Some(value) } => buffer.push_str(value),
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
         }
         Ok(())
@@ -1317,12 +1319,12 @@ impl SqlBuilder for CreatedbOptList<'_> {
             if let Some(ref arg) = elem.arg {
                 match &**arg {
                     Node::String {
-                        value: Some(ref value),
+                        sval: Some(ref value),
                     } => {
                         buffer.push(' ');
                         BooleanOrString(value).build(buffer)?;
                     }
-                    Node::Integer { value } => buffer.push_str(&format!(" {}", *value)),
+                    Node::Integer { ival } => buffer.push_str(&format!(" {}", *ival)),
                     _ => {}
                 }
             } else {
@@ -1343,7 +1345,7 @@ mod tests {
     #[test]
     fn it_can_convert_bit_string_x_to_sql_value() {
         let node = Node::BitString {
-            value: Some("x123".into()),
+            bsval: Some("x123".into()),
         };
         let mut buffer = String::new();
         let result = SqlValue(&node).build_with_context(&mut buffer, Context::None);
@@ -1354,7 +1356,7 @@ mod tests {
     #[test]
     fn it_can_convert_bit_string_b_to_sql_value() {
         let node = Node::BitString {
-            value: Some("b123".into()),
+            bsval: Some("b123".into()),
         };
         let mut buffer = String::new();
         let result = SqlValue(&node).build_with_context(&mut buffer, Context::None);

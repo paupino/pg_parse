@@ -76,12 +76,14 @@ impl fmt::Display for BoolExprType {
 }
 
 impl SqlBuilder for Node {
-    fn build(&self, buffer: &mut String) -> core::result::Result<(), SqlError> {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self {
             Node::A_ArrayExpr(a_array_expr) => a_array_expr.build(buffer)?,
-            Node::A_Const { value: is_null } => {
-                if *is_null {
+            Node::A_Const { val, isnull } => {
+                if *isnull {
                     buffer.push_str("NULL")
+                } else {
+                    (**val).build(buffer)?
                 }
             }
             Node::A_Expr(a_expr) => a_expr.build_with_context(buffer, Context::None)?,
@@ -342,7 +344,7 @@ mod tests {
 
     #[test]
     fn it_can_convert_a_value_node_to_string() {
-        let node = Node::Integer { value: 5 };
+        let node = Node::Integer { ival: 5 };
         assert_eq!("Integer", node.name());
     }
 }

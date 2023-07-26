@@ -355,19 +355,18 @@ fn make_nodes(
             writeln!(out, "    {} {{ }},", name)?;
             continue;
         }
-        // Only one
-        let field = &def.fields[0];
+        // May have many now
         writeln!(out, "    {} {{", name)?;
-        writeln!(
-            out,
-            "        #[serde(rename = \"{}\")]",
-            field.name.as_ref().unwrap(),
-        )?;
-        writeln!(
-            out,
-            "        value: {}",
-            type_resolver.resolve(field.c_type.as_ref().unwrap())
-        )?;
+        for field in &def.fields {
+            let field_name = field.name.as_ref().unwrap();
+            // writeln!(out, "        #[serde(rename = \"{}\")]", field_name,)?;
+            writeln!(
+                out,
+                "        {}: {},",
+                field_name,
+                type_resolver.resolve(field.c_type.as_ref().unwrap())
+            )?;
+        }
         writeln!(out, "    }},")?;
     }
 
@@ -506,6 +505,7 @@ impl TypeResolver {
         primitive.insert("List*", "Option<Vec<Node>>");
         primitive.insert("[]Node", "Vec<Node>");
         primitive.insert("Node*", "Option<Box<Node>>");
+        primitive.insert("Node", "Box<Node>");
         primitive.insert("Expr*", "Option<Box<Node>>");
 
         // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.

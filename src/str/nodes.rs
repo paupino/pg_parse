@@ -1047,7 +1047,7 @@ impl SqlBuilder for ColumnRef {
             match node {
                 Node::A_Star(star) => star.build(buffer)?,
                 Node::String {
-                    value: Some(ref value),
+                    sval: Some(ref value),
                 } => buffer.push_str(&quote_identifier(value)),
                 _ => {}
             }
@@ -1500,7 +1500,7 @@ impl SqlBuilder for CopyStmt {
                 inner_buffer.push(' ');
                 match &**arg {
                     Node::String {
-                        value: Some(ref value),
+                        sval: Some(ref value),
                     } => BooleanOrString(value).build(inner_buffer)?,
                     Node::Integer { .. } | Node::Float { .. } => {
                         NumericOnly(&**arg).build(inner_buffer)?
@@ -2676,7 +2676,7 @@ impl SqlBuilder for ExplainStmt {
                                 NumericOnly(&**arg).build(buffer)?;
                             }
                             Node::String {
-                                value: Some(ref value),
+                                sval: Some(ref value),
                             } => {
                                 buffer.push(' ');
                                 BooleanOrString(value).build(buffer)?;
@@ -4083,8 +4083,8 @@ impl SqlBuilder for SelectStmt {
                 }
             };
 
-            let all = if let Node::A_Const { value } = **limit {
-                value
+            let all = if let Node::A_Const { isnull, .. } = **limit {
+                isnull
             } else {
                 false
             };
@@ -4286,38 +4286,36 @@ impl SqlBuilder for TypeCast {
                 buffer.push(')');
                 return Ok(());
             }
-            // Node::A_Const { value } => {
-            //     let names = must!(type_name.names);
-            //     let names = node_vec_to_string_vec(names);
-            //     if names.len() == 2 && names[0].eq("pg_catalog") {
-            //         let ty = names[1];
-            //         if ty.eq("bpchar") && type_name.typmods.is_none() {
-            //             buffer.push_str("char ");
-            //             a_const.build(buffer)?;
-            //             return Ok(());
-            //         }
-            //         if ty.eq("bool") {
-            //             if let Node::String {
-            //                 value: Some(ref value),
-            //             } = a_const.val.0
-            //             {
-            //                 match &value[..] {
-            //                     "t" => buffer.push_str("true"),
-            //                     "f" => buffer.push_str("false"),
-            //                     _ => {}
-            //                 }
-            //                 return Ok(());
-            //             }
-            //         }
-            //     }
-            //
-            //     // This ensures negative values have wrapping parens
-            //     match a_const.val.0 {
-            //         Node::Float { .. } => parenthesis = true,
-            //         Node::Integer { value } if value < 0 => parenthesis = true,
-            //         _ => {}
-            //     }
-            // }
+
+            Node::A_Const { val, isnull } => {
+                let names = must!(type_name.names);
+                let names = node_vec_to_string_vec(names);
+                if names.len() == 2 && names[0].eq("pg_catalog") {
+                    let ty = names[1];
+                    if ty.eq("bpchar") && type_name.typmods.is_none() {
+                        buffer.push_str("char ");
+                        (&**val).build(buffer)?;
+                        return Ok(());
+                    }
+
+                    if let Node::Boolean { boolval } = &**val {
+                        if *boolval {
+                            buffer.push_str("true");
+                        } else {
+                            buffer.push_str("false");
+                        }
+                        return Ok(());
+                    }
+                }
+
+                // This ensures negative values have wrapping parens
+                match &**val {
+                    Node::Float { .. } => parenthesis = true,
+                    Node::Integer { ival } if *ival < 0 => parenthesis = true,
+                    _ => {}
+                }
+            }
+
             _ => {}
         }
 
@@ -4472,9 +4470,7 @@ impl SqlBuilder for TypeName {
             for bound in bounds {
                 buffer.push('[');
                 match &bound {
-                    Node::Integer { value } if *value >= 0 => {
-                        buffer.push_str(&(*value).to_string())
-                    }
+                    Node::Integer { ival } if *ival >= 0 => buffer.push_str(&(*ival).to_string()),
                     _ => {} // Ignore
                 }
                 buffer.push(']');
@@ -4553,7 +4549,7 @@ impl SqlBuilder for VacuumStmt {
                                 NumericOnly(&**arg).build(buffer)?
                             }
                             Node::String {
-                                value: Some(ref value),
+                                sval: Some(ref value),
                             } => BooleanOrString(value).build(buffer)?,
                             unexpected => {
                                 return Err(SqlError::UnexpectedNodeType(unexpected.name()))
@@ -5359,8 +5355,8 @@ impl SqlBuilder for XmlExpr {
                 Expr(&args[0]).build(buffer)?;
                 if let Node::TypeCast(ref tc) = args[1] {
                     if let Some(ref inner) = tc.arg {
-                        if let Node::Boolean { value } = **inner {
-                            if value {
+                        if let Node::Boolean { boolval } = **inner {
+                            if boolval {
                                 buffer.push_str(" PRESERVE WHITESPACE");
                             }
                         }
@@ -5394,8 +5390,8 @@ impl SqlBuilder for XmlExpr {
                     .next()
                     .ok_or_else(|| SqlError::Missing("Missing element (2)".into()))?;
                 match arg {
-                    Node::A_Const { value: is_null } => {
-                        if *is_null {
+                    Node::A_Const { isnull, .. } => {
+                        if *isnull {
                             buffer.push_str("NO VALUE");
                         } else {
                             Expr(arg).build(buffer)?;

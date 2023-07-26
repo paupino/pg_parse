@@ -58,13 +58,13 @@ fn it_can_generate_a_create_table_ast() {
                 Some(n) => n,
                 None => panic!("No type names found"),
             };
-            assert_eq!(names.len(), 2);
+            assert_eq!(names.len(), 2, "Names length");
             match &names[0] {
-                Node::String { value } => assert_eq!(value, &Some("pg_catalog".into())),
+                Node::String { sval: value } => assert_eq!(value, &Some("pg_catalog".into())),
                 unexpected => panic!("Unexpected type for name[0] {:?}", unexpected),
             }
             match &names[1] {
-                Node::String { value } => assert_eq!(value, &Some("numeric".into())),
+                Node::String { sval: value } => assert_eq!(value, &Some("numeric".into())),
                 unexpected => panic!("Unexpected type for name[1] {:?}", unexpected),
             }
 
@@ -73,15 +73,15 @@ fn it_can_generate_a_create_table_ast() {
                 Some(m) => m,
                 None => panic!("No type mods found"),
             };
-            assert_eq!(mods.len(), 2);
+            assert_eq!(mods.len(), 2, "Mods length");
             match &mods[0] {
-                Node::Integer { value } => {
+                Node::Integer { ival: value } => {
                     assert_eq!(*value, 5);
                 }
                 unexpected => panic!("Unexpected type for mods[0] {:?}", unexpected),
             }
             match &mods[1] {
-                Node::Integer { value } => {
+                Node::Integer { ival: value } => {
                     assert_eq!(*value, 12);
                 }
                 unexpected => panic!("Unexpected type for mods[0] {:?}", unexpected),
@@ -193,7 +193,7 @@ fn it_can_parse_a_table_of_defaults() {
             assert!(c2.raw_expr.is_some());
             let raw_expr = c2.raw_expr.as_ref().unwrap();
             let is_null = match **raw_expr {
-                Node::A_Const { value: is_null } => is_null,
+                Node::A_Const { isnull, .. } => isnull,
                 _ => panic!("Expected constant"),
             };
             assert!(is_null, "Expected NULL");
@@ -206,7 +206,7 @@ fn it_can_parse_a_table_of_defaults() {
 fn it_can_parse_tests() {
     // This is a set of tests inspired by libpg_query that test various situations. The scenario that
     // inspired this was actually SELECT DISTINCT, since it libpg_query it'll return [{}] which doesn't
-    // have enough information to be parsed by pg_parse. We no ignore empty array components like this.
+    // have enough information to be parsed by pg_parse. We ignore empty array components like this.
     const TESTS: [(&str, &str); 26] = [
         ("SELECT 1",
         "[SelectStmt(SelectStmt { distinct_clause: None, into_clause: None, target_list: Some([ResTarget(ResTarget { name: None, indirection: None, val: Some(A_Const(A_Const { val: Value(Integer { value: 1 }), location: 7 })), location: 7 })]), from_clause: None, where_clause: None, group_clause: None, having_clause: None, window_clause: None, values_lists: None, sort_clause: None, limit_offset: None, limit_count: None, limit_option: LIMIT_OPTION_DEFAULT, locking_clause: None, with_clause: None, op: SETOP_NONE, all: false, larg: None, rarg: None })]"),

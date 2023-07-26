@@ -99,7 +99,7 @@ mod tests {
         let json = "{ \"values\": [{ \"Boolean\": { \"boolval\": true } }, {}] }";
         let nodes: Nodes = serde_json::from_str(json).unwrap();
         assert_eq!(1, nodes.values.len());
-        assert!(matches!(nodes.values[0], Node::Boolean { value: true }))
+        assert!(matches!(nodes.values[0], Node::Boolean { boolval: true }))
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
         assert!(nodes.values.is_some());
         let values = nodes.values.unwrap();
         assert_eq!(1, values.len());
-        assert!(matches!(values[0], Node::Boolean { value: false }))
+        assert!(matches!(values[0], Node::Boolean { boolval: false }))
     }
 
     #[test]
