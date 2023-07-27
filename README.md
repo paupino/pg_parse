@@ -17,7 +17,7 @@ Add the following to your `Cargo.toml`
 
 ```toml
 [dependencies]
-pg_parse = "1.0"
+pg_parse = "0.11"
 ```
 
 ## Example: Parsing a query
@@ -30,7 +30,8 @@ assert!(result.is_ok());
 let result = result.unwrap();
 assert!(matches!(*&result[0], Node::SelectStmt(_)));
 
-// We can also convert back to a string
+//! // We can also convert back to a string, if enabled
+//! #[cfg(feature = "str")]
 assert_eq!(result[0].to_string(), "SELECT * FROM contacts");
 ```
 

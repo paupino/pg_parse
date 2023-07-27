@@ -1,13 +1,22 @@
-# Version 1.0.0
+# Version 0.11
+
+**This release upgrades `libpg_query` so contains breaking changes.**
+
+New:
+* Introduced a `parse_debug` function to allow for consuming functions to inspect the raw JSON output from `libpg_query`. 
+  This is likely only used internally by library authors, but a useful feature nonetheless.
 
 Modified:
-* Updated `libpg_query` to [15-4.2.2](https://github.com/pganalyze/libpg_query/tree/15-4.2.2).
+* Updated `libpg_query` to [15-4.2.2](https://github.com/pganalyze/libpg_query/tree/15-4.2.2). This required a lot of refactoring to support the modified
+  AST being generated.
+* String generation is now feature gated under `str`. This feature is not feature complete 
+  so should be used with caution. Please note, this is currently enabled by default.
 
-Please note, that this downstream release modifies the nodes generated. Since this is a breaking change, I've
-started to use semver.
+Other:
+* Bumped the project version to `2021` and updated syntax accordingly.
 
-Also, it is important to note that with this release a number of old features have been dropped. For example, `?` is no longer 
-a valid literal as of `14-3.0.0`.
+Please note that some syntax support has been dropped between Postgres version releases. For example,
+the `?` placeholder is no longer supported. For a full list, please see the `libpg_query` changelog.
 
 # Version 0.10
 
