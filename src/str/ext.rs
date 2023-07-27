@@ -158,7 +158,7 @@ impl SqlBuilder for RelOptions<'_> {
                 }
             }
             if let Some(ref arg) = elem.arg {
-                DefArg(&**arg, false).build(buffer)?;
+                DefArg(arg, false).build(buffer)?;
             }
         }
         buffer.push(')');
@@ -298,7 +298,7 @@ impl SqlBuilder for SetClauseList<'_> {
             if let Node::MultiAssignRef(ref mar) = **val {
                 buffer.push('(');
                 for (inner_index, inner_target) in target_list.iter().enumerate() {
-                    SetTarget(*inner_target).build(buffer)?;
+                    SetTarget(inner_target).build(buffer)?;
                     if inner_index as i32 == mar.ncolumns - 1 {
                         break;
                     } else if inner_index < target_list.len() - 1 {
@@ -307,13 +307,13 @@ impl SqlBuilder for SetClauseList<'_> {
                 }
                 buffer.push_str(") = ");
                 if let Some(ref source) = mar.source {
-                    Expr(&**source).build(buffer)?;
+                    Expr(source).build(buffer)?;
                 }
                 skip = mar.ncolumns - 1;
             } else {
                 SetTarget(target).build(buffer)?;
                 buffer.push_str(" = ");
-                Expr(&**val).build(buffer)?;
+                Expr(val).build(buffer)?;
             }
         }
 
@@ -630,7 +630,7 @@ impl SqlBuilder for XmlAttributeList<'_> {
             }
 
             if let Some(ref val) = item.val {
-                Expr(&**val).build(buffer)?;
+                Expr(val).build(buffer)?;
             }
             if let Some(ref name) = item.name {
                 buffer.push_str(" AS ");
@@ -842,10 +842,10 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
             }
         } else if name.eq("cost") {
             buffer.push_str("COST ");
-            SqlValue(&**arg).build_with_context(buffer, Context::None)?;
+            SqlValue(arg).build_with_context(buffer, Context::None)?;
         } else if name.eq("rows") {
             buffer.push_str("ROWS ");
-            SqlValue(&**arg).build_with_context(buffer, Context::None)?;
+            SqlValue(arg).build_with_context(buffer, Context::None)?;
         } else if name.eq("support") {
             buffer.push_str("SUPPORT ");
             let list = node!(**arg, Node::List);
@@ -1032,7 +1032,7 @@ impl SqlBuilder for SeqOptElem<'_> {
             "cache" => {
                 let arg = must!(self.0.arg);
                 buffer.push_str("CACHE ");
-                NumericOnly(&**arg).build(buffer)?;
+                NumericOnly(arg).build(buffer)?;
             }
             "cycle" => {
                 let arg = must!(self.0.arg);
@@ -1046,12 +1046,12 @@ impl SqlBuilder for SeqOptElem<'_> {
             "increment" => {
                 let arg = must!(self.0.arg);
                 buffer.push_str("INCREMENT ");
-                NumericOnly(&**arg).build(buffer)?;
+                NumericOnly(arg).build(buffer)?;
             }
             "maxvalue" => {
                 if let Some(ref arg) = self.0.arg {
                     buffer.push_str("MAXVALUE ");
-                    NumericOnly(&**arg).build(buffer)?;
+                    NumericOnly(arg).build(buffer)?;
                 } else {
                     buffer.push_str("NO MAXVALUE");
                 }
@@ -1059,7 +1059,7 @@ impl SqlBuilder for SeqOptElem<'_> {
             "minvalue" => {
                 if let Some(ref arg) = self.0.arg {
                     buffer.push_str("MINVALUE ");
-                    NumericOnly(&**arg).build(buffer)?;
+                    NumericOnly(arg).build(buffer)?;
                 } else {
                     buffer.push_str("NO MINVALUE");
                 }
@@ -1079,12 +1079,12 @@ impl SqlBuilder for SeqOptElem<'_> {
             "start" => {
                 let arg = must!(self.0.arg);
                 buffer.push_str("START ");
-                NumericOnly(&**arg).build(buffer)?;
+                NumericOnly(arg).build(buffer)?;
             }
             "restart" => {
                 if let Some(ref arg) = self.0.arg {
                     buffer.push_str("RESTART ");
-                    NumericOnly(&**arg).build(buffer)?;
+                    NumericOnly(arg).build(buffer)?;
                 } else {
                     buffer.push_str("RESTART");
                 }
@@ -1113,7 +1113,7 @@ impl SqlBuilder for AlterIdentityColumnOptionList<'_> {
                     buffer.push_str("RESTART");
                     if let Some(ref arg) = elem.arg {
                         buffer.push(' ');
-                        NumericOnly(&**arg).build(buffer)?;
+                        NumericOnly(arg).build(buffer)?;
                     }
                 }
                 "generated" => {
@@ -1280,7 +1280,7 @@ impl SqlBuilder for XmlNamespaceList<'_> {
             }
 
             let val = must!(item.val);
-            Expr(&**val).build(buffer)?;
+            Expr(val).build(buffer)?;
 
             if let Some(ref name) = item.name {
                 buffer.push_str(" AS ");
@@ -1386,7 +1386,7 @@ impl SqlBuilder for Definition<'_> {
             buffer.push_str(&quote_identifier(name));
             if let Some(ref arg) = item.arg {
                 buffer.push_str(" = ");
-                DefArg(&**arg, false).build(buffer)?;
+                DefArg(arg, false).build(buffer)?;
             }
         }
         buffer.push(')');

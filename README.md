@@ -30,8 +30,8 @@ assert!(result.is_ok());
 let result = result.unwrap();
 assert!(matches!(*&result[0], Node::SelectStmt(_)));
 
-//! // We can also convert back to a string, if enabled
-//! #[cfg(feature = "str")]
+// We can also convert back to a string, if the `str` feature is enabled (enabled by default).
+#[cfg(feature = "str")]
 assert_eq!(result[0].to_string(), "SELECT * FROM contacts");
 ```
 
@@ -42,8 +42,7 @@ closely resembles the name of the C library also published by the team (`libpg_q
 interface introduced with version 13 of `libpg_query`.
 
 This library similarly consumes `libpg_query` however utilizes the older JSON interface to manage parsing. The intention of this library
-is to maintain a dependency "light" implementation with `serde` being the only required runtime dependency. While this was originally called
-`pg_query.rs` it made sense to decouple itself from the official naming convention and continue independently. Hence `pg_parse`.
+is to maintain a dependency "light" implementation with `serde` and `serde_json` being the only required runtime dependencies. 
 
 So which one should you use? You probably want to use the official `pg_query.rs` library as that will continue to be 
 kept closely up to date with `libpg_query` updates. This library will continue to be maintained however may not be as up-to-date as the official implementation.

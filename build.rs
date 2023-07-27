@@ -398,7 +398,7 @@ fn make_nodes(
 
             for field in &def.fields {
                 let (name, c_type) = match (&field.name, &field.c_type) {
-                    (&Some(ref name), &Some(ref c_type)) => (name, c_type),
+                    (Some(name), Some(c_type)) => (name, c_type),
                     _ => continue,
                 };
 
@@ -554,7 +554,7 @@ impl TypeResolver {
     }
 
     pub fn is_optional(&self, ty: &str) -> bool {
-        return self.is_primitive(ty) || ty.ends_with('*');
+        self.is_primitive(ty) || ty.ends_with('*')
     }
 
     pub fn custom_deserializer(ty: &str) -> Option<(&str, bool)> {
