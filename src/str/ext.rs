@@ -827,28 +827,18 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
                 }
             }
         } else if name.eq("security") {
-            // TODO: Confirm this isn't a boolean now
-            let value = int_value!(&**arg).unwrap_or_default();
-            match value {
-                0 => buffer.push_str("SECURITY INVOKER"),
-                1 => buffer.push_str("SECURITY DEFINER"),
-                unexpected => {
-                    return Err(SqlError::Unsupported(format!(
-                        "Unexpected security value: {unexpected}"
-                    )))
-                }
+            let value = bool_value!(&**arg).unwrap_or_default();
+            if value {
+                buffer.push_str("SECURITY DEFINER");
+            } else {
+                buffer.push_str("SECURITY INVOKER");
             }
         } else if name.eq("leakproof") {
-            // TODO: Confirm this isn't a boolean now
-            let value = int_value!(&**arg).unwrap_or_default();
-            match value {
-                0 => buffer.push_str("NOT LEAKPROOF"),
-                1 => buffer.push_str("LEAKPROOF"),
-                unexpected => {
-                    return Err(SqlError::Unsupported(format!(
-                        "Unexpected leakproof value: {unexpected}"
-                    )))
-                }
+            let value = bool_value!(&**arg).unwrap_or_default();
+            if value {
+                buffer.push_str("LEAKPROOF");
+            } else {
+                buffer.push_str("NOT LEAKPROOF");
             }
         } else if name.eq("cost") {
             buffer.push_str("COST ");
