@@ -1,6 +1,8 @@
 use std::fmt;
 
+use crate::ast::ConstValue;
 use serde::de::{Deserializer, Error, SeqAccess, Visitor};
+use serde::Deserialize;
 
 pub(crate) fn deserialize_node_array<'de, D>(
     deserializer: D,
@@ -77,8 +79,179 @@ where
     deserializer.deserialize_option(NodeArrayOpt)
 }
 
+pub(crate) fn deserialize_nested_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct NestedString;
+    impl<'de> Visitor<'de> for NestedString {
+        type Value = String;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("String")
+        }
+
+        fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+        where
+            V: serde::de::MapAccess<'de>,
+        {
+            if let Some(key) = map.next_key::<String>()? {
+                if key.ne("sval") {
+                    return Err(Error::missing_field("sval"));
+                }
+                let value = map.next_value::<String>()?;
+                Ok(value)
+            } else {
+                Err(Error::missing_field("sval"))
+            }
+        }
+    }
+
+    deserializer.deserialize_map(NestedString)
+}
+
+pub(crate) fn deserialize_nested_string_opt<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct NestedStringOpt;
+    impl<'de> Visitor<'de> for NestedStringOpt {
+        type Value = Option<String>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("Option<String>")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = deserialize_nested_string(deserializer)?;
+            Ok(Some(value))
+        }
+    }
+
+    deserializer.deserialize_option(NestedStringOpt)
+}
+
+impl<'de> serde::Deserialize<'de> for ConstValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ConstValueVisitor;
+
+        impl<'de> Visitor<'de> for ConstValueVisitor {
+            type Value = ConstValue;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("ConnectorTopics")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: serde::de::MapAccess<'de>,
+            {
+                #[derive(Deserialize)]
+                struct BoolValue {
+                    #[serde(default)]
+                    boolval: bool,
+                }
+                #[derive(Deserialize)]
+                struct IntValue {
+                    #[serde(default)]
+                    ival: i64,
+                }
+
+                #[derive(Deserialize)]
+                struct FloatValue {
+                    fval: String,
+                }
+
+                #[derive(Deserialize)]
+                struct StringValue {
+                    sval: String,
+                }
+
+                #[derive(Deserialize)]
+                struct BitStringValue {
+                    bsval: String,
+                }
+
+                fn maybe_location<'de, V>(mut inner: V) -> Result<(), V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+                {
+                    // We may have a location after this which we need to consume
+                    if let Some(_location) = inner.next_key::<String>()? {
+                        let _pos = inner.next_value::<i32>()?;
+                    }
+                    Ok(())
+                }
+
+                if let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "boolval" => {
+                            let value = map.next_value::<BoolValue>()?;
+                            maybe_location(map)?;
+                            Ok(ConstValue::Bool(value.boolval))
+                        }
+                        "ival" => {
+                            let value = map.next_value::<IntValue>()?;
+                            maybe_location(map)?;
+                            Ok(ConstValue::Integer(value.ival))
+                        }
+                        "fval" => {
+                            let value = map.next_value::<FloatValue>()?;
+                            maybe_location(map)?;
+                            Ok(ConstValue::Float(value.fval))
+                        }
+                        "sval" => {
+                            let value = map.next_value::<StringValue>()?;
+                            maybe_location(map)?;
+                            Ok(ConstValue::String(value.sval))
+                        }
+                        "bsval" => {
+                            let value = map.next_value::<BitStringValue>()?;
+                            maybe_location(map)?;
+                            Ok(ConstValue::BitString(value.bsval))
+                        }
+                        "isnull" => {
+                            let null = map.next_value::<bool>()?;
+                            maybe_location(map)?;
+                            if null {
+                                Ok(ConstValue::Null)
+                            } else {
+                                Ok(ConstValue::NotNull)
+                            }
+                        }
+                        unknown => Err(Error::unknown_field(
+                            unknown,
+                            &["boolval", "ival", "fval", "sval", "bsval", "isnull"],
+                        )),
+                    }
+                } else {
+                    Err(Error::custom("expected value"))
+                }
+            }
+        }
+
+        deserializer.deserialize_map(ConstValueVisitor {})
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::ast::ConstValue;
     use crate::ast::Node;
     use serde::Deserialize;
 
@@ -96,10 +269,13 @@ mod tests {
 
     #[test]
     fn it_can_deserialize_a_node_array() {
-        let json = "{ \"values\": [{ \"Null\": {} }, {}] }";
+        let json = "{ \"values\": [{ \"A_Const\": { \"ival\": { \"ival\": 10 }, \"location\": 253 } }, {}] }";
         let nodes: Nodes = serde_json::from_str(json).unwrap();
         assert_eq!(1, nodes.values.len());
-        assert!(matches!(nodes.values[0], Node::Null {}))
+        assert!(matches!(
+            nodes.values[0],
+            Node::A_Const(ConstValue::Integer(10))
+        ))
     }
 
     #[test]
@@ -118,12 +294,17 @@ mod tests {
 
     #[test]
     fn it_can_deserialize_an_optional_node_array_with_some() {
-        let json = "{ \"values\": [{ \"Null\": {} }, {}] }";
+        let json = "{ \"values\": [{ \"Boolean\": { \"boolval\": false } }, {}] }";
         let nodes: OptionalNodes = serde_json::from_str(json).unwrap();
         assert!(nodes.values.is_some());
         let values = nodes.values.unwrap();
         assert_eq!(1, values.len());
-        assert!(matches!(values[0], Node::Null {}))
+        assert!(matches!(
+            values[0],
+            Node::Boolean {
+                boolval: Some(false)
+            }
+        ))
     }
 
     #[test]
@@ -133,5 +314,155 @@ mod tests {
         assert!(nodes.values.is_some());
         let values = nodes.values.unwrap();
         assert_eq!(0, values.len());
+    }
+
+    #[test]
+    fn it_can_deserialize_const_with_location() {
+        let tests = [
+            (
+                "{ \"ival\": { \"ival\": 10 }, \"location\": 253 }",
+                ConstValue::Integer(10),
+            ),
+            (
+                "{ \"boolval\": { \"boolval\": true }, \"location\": 253 }",
+                ConstValue::Bool(true),
+            ),
+            (
+                "{ \"fval\": { \"fval\": \"1.23\" }, \"location\": 253 }",
+                ConstValue::Float("1.23".to_string()),
+            ),
+            (
+                "{ \"sval\": { \"sval\": \"hello\" }, \"location\": 253 }",
+                ConstValue::String("hello".to_string()),
+            ),
+            (
+                "{ \"bsval\": { \"bsval\": \"b123\" }, \"location\": 253 }",
+                ConstValue::BitString("b123".to_string()),
+            ),
+        ];
+        for (json, test) in &tests {
+            let deserialized: ConstValue =
+                serde_json::from_str(json).expect("Failed to deserialize");
+            assert_eq!(deserialized, *test, "Failed to deserialize: {}", json);
+        }
+    }
+
+    #[test]
+    fn it_can_deserialize_const_without_location() {
+        let tests = [
+            ("{ \"ival\": { \"ival\": 10 } }", ConstValue::Integer(10)),
+            (
+                "{ \"boolval\": { \"boolval\": true } }",
+                ConstValue::Bool(true),
+            ),
+            (
+                "{ \"fval\": { \"fval\": \"1.23\" } }",
+                ConstValue::Float("1.23".to_string()),
+            ),
+            (
+                "{ \"sval\": { \"sval\": \"hello\" } }",
+                ConstValue::String("hello".to_string()),
+            ),
+            (
+                "{ \"bsval\": { \"bsval\": \"b123\" } }",
+                ConstValue::BitString("b123".to_string()),
+            ),
+        ];
+        for (json, test) in &tests {
+            let deserialized: ConstValue =
+                serde_json::from_str(json).expect("Failed to deserialize");
+            assert_eq!(deserialized, *test, "Failed to deserialize: {}", json);
+        }
+    }
+
+    #[test]
+    fn it_can_deserialize_a_const() {
+        // The structure of a_const changed dramatically which broke the deserialization.
+        // Effectively, the definition of this is:
+        //     "A_Const": {
+        //       "fields": [
+        //         {
+        //           "name": "isnull",
+        //           "c_type": "bool"
+        //         },
+        //         {
+        //           "name": "val",
+        //           "c_type": "Node"
+        //         }
+        //       ]
+        //     }
+        // The reality, however, is that nodes get sent in like:
+        //   // Works ok
+        //   "A_Const":
+        //   {
+        //     "isnull": true,
+        //     "location": 323
+        //   }
+        //
+        //   // Does not work ok
+        //   "A_Const":
+        //   {
+        //        "ival":
+        //        {
+        //          "ival": 1
+        //        },
+        //        "location": 123
+        //   }
+        // Consequently, this test covers these cases
+        let null_json = "{ \"A_Const\": { \"isnull\": true, \"location\": 323 } }";
+        let null_const: Node = serde_json::from_str(null_json).expect("Failed to deserialize");
+        let Node::A_Const(ConstValue::Null) = null_const else {
+            panic!("Expected A_Const node: {:#?}", null_const);
+        };
+
+        let ival_json = "{ \"A_Const\": { \"ival\": { \"ival\": 1 }, \"location\": 123 } }";
+        let ival_const: Node = serde_json::from_str(ival_json).expect("Failed to deserialize");
+        let Node::A_Const(ConstValue::Integer(val)) = ival_const else {
+            panic!("Expected A_Const node: {:#?}", ival_const);
+        };
+        assert_eq!(val, 1);
+    }
+
+    #[test]
+    fn it_can_parse_an_empty_constant() {
+        // This defaults to 0 - this is because it exits libpg_query like this, even for zero's.
+        // We should keep an eye on this as 0 could be different than absence of data in the future.
+        let json = "{ \"A_Const\": { \"ival\": {}, \"location\": 38 } }";
+        let node: Node = serde_json::from_str(json).unwrap();
+        assert!(
+            matches!(node, Node::A_Const(ConstValue::Integer(0))),
+            "Expected integer constant to default to 0"
+        );
+    }
+
+    #[test]
+    fn it_can_parse_empty_nodes() {
+        // This defaults to 0 - this is because it exits libpg_query like this, even for zero's.
+        // We should keep an eye on this as 0 could be different than absence of data in the future.
+        let json = "{\"Integer\":{}}";
+        let node: Node = serde_json::from_str(json).unwrap();
+        assert!(
+            matches!(node, Node::Integer { ival: None }),
+            "Expected integer node to default to None"
+        );
+    }
+
+    #[test]
+    fn it_can_parse_directly_nested_strings() {
+        #[derive(Deserialize)]
+        struct Test {
+            #[serde(
+                deserialize_with = "crate::serde::deserialize_nested_string_opt",
+                default
+            )]
+            extname: Option<String>,
+        }
+        let json = "{\"extname\":{\"sval\":\"a\"}}";
+        let node: Test = serde_json::from_str(json).unwrap();
+        assert_eq!(node.extname, Some("a".to_string()));
+
+        let json = "{}";
+        let node: Test = serde_json::from_str(json).unwrap();
+        assert_eq!(node.extname, None);
     }
 }

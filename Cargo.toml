@@ -1,16 +1,18 @@
 [package]
 name = "pg_parse"
 description = "PostgreSQL parser that uses the actual PostgreSQL server source to parse SQL queries and return the internal PostgreSQL parse tree."
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Paul Mason <paul@form1.co.nz>"]
-edition = "2018"
+edition = "2021"
 documentation = "https://docs.rs/pg_parse/"
 build = "build.rs"
 license = "MIT"
 readme = "./README.md"
 repository = "https://github.com/paupino/pg_parse"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["str"]
+str = []
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -21,7 +23,7 @@ regex = "1.7"
 version-sync = "0.9"
 
 [build-dependencies]
-bindgen = "0.63"
+bindgen = "0.66"
 heck = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

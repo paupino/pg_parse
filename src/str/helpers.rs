@@ -18,6 +18,30 @@ macro_rules! node {
     };
 }
 
+macro_rules! const_integer {
+    ($expr:expr) => {
+        match &$expr {
+            Node::A_Const(value) => match &value {
+                crate::ast::ConstValue::Integer(value) => value,
+                unexpected => return Err(SqlError::UnexpectedConstValue(unexpected.name())),
+            },
+            unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+        }
+    };
+}
+
+macro_rules! const_string {
+    ($expr:expr) => {
+        match &$expr {
+            Node::A_Const(value) => match &value {
+                crate::ast::ConstValue::String(value) => value,
+                unexpected => return Err(SqlError::UnexpectedConstValue(unexpected.name())),
+            },
+            unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+        }
+    };
+}
+
 macro_rules! iter_only {
     ($expr:expr, $ty:path) => {
         $expr.iter().filter_map(|n| match n {
@@ -26,11 +50,19 @@ macro_rules! iter_only {
         })
     };
 }
+macro_rules! bool_value {
+    ($expr:expr) => {
+        match &$expr {
+            Node::Boolean { boolval: value } => value,
+            unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+        }
+    };
+}
 
 macro_rules! int_value {
     ($expr:expr) => {
         match &$expr {
-            Node::Integer { value } => *value,
+            Node::Integer { ival: value } => value,
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
         }
     };
@@ -39,7 +71,7 @@ macro_rules! int_value {
 macro_rules! string_value {
     ($expr:expr) => {
         match &$expr {
-            Node::String { value: Some(value) } => value,
+            Node::String { sval: Some(value) } => value,
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
         }
     };
@@ -60,7 +92,7 @@ pub(in crate::str) fn join_strings(
         if index > 0 {
             buffer.push_str(delim);
         }
-        if let Node::String { value: Some(value) } = node {
+        if let Node::String { sval: Some(value) } = node {
             buffer.push_str(&quote_identifier(value));
         } else {
             return Err(SqlError::UnexpectedNodeType(node.name()));
@@ -105,7 +137,7 @@ pub(in crate::str) fn node_vec_to_string_vec(nodes: &[Node]) -> Vec<&String> {
     nodes
         .iter()
         .filter_map(|n| match n {
-            Node::String { value: Some(value) } => Some(value),
+            Node::String { sval: Some(value) } => Some(value),
             _ => None,
         })
         .collect::<Vec<_>>()

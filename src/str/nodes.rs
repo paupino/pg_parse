@@ -13,9 +13,25 @@ impl SqlBuilder for A_ArrayExpr {
     }
 }
 
-impl SqlBuilder for A_Const {
+impl SqlBuilder for &Option<ConstValue> {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
-        SqlValue(self.val.inner()).build_with_context(buffer, Context::Constant)
+        if let Some(value) = self {
+            (*value).build(buffer)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl SqlBuilder for ConstValue {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
+        SqlConstValue(self).build_with_context(buffer, Context::Constant)
+    }
+}
+
+impl SqlBuilderWithContext for ConstValue {
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
+        SqlConstValue(self).build_with_context(buffer, context)
     }
 }
 
@@ -44,7 +60,7 @@ impl SqlBuilderWithContext for A_Expr {
                     if need_left_parens {
                         buffer.push('(');
                     }
-                    Expr(&**left).build(buffer)?;
+                    Expr(left).build(buffer)?;
                     if need_left_parens {
                         buffer.push(')');
                     }
@@ -60,7 +76,7 @@ impl SqlBuilderWithContext for A_Expr {
                     if need_right_parens {
                         buffer.push('(');
                     }
-                    Expr(&**right).build(buffer)?;
+                    Expr(right).build(buffer)?;
                     if need_right_parens {
                         buffer.push(')');
                     }
@@ -76,7 +92,7 @@ impl SqlBuilderWithContext for A_Expr {
                 let name = must!(self.name);
 
                 // x op ANY(y)
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 buffer.push(' ');
                 SubqueryOperator(name).build(buffer)?;
                 if (*self.kind).eq(&A_Expr_Kind::AEXPR_OP_ALL) {
@@ -84,7 +100,7 @@ impl SqlBuilderWithContext for A_Expr {
                 } else {
                     buffer.push_str(" ANY(");
                 }
-                Expr(&**right).build(buffer)?;
+                Expr(right).build(buffer)?;
                 buffer.push(')');
             }
             A_Expr_Kind::AEXPR_DISTINCT => {
@@ -94,7 +110,7 @@ impl SqlBuilderWithContext for A_Expr {
                 if need_left_parens {
                     buffer.push('(');
                 }
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 if need_left_parens {
                     buffer.push(')');
                 }
@@ -102,7 +118,7 @@ impl SqlBuilderWithContext for A_Expr {
                 if need_right_parens {
                     buffer.push('(');
                 }
-                Expr(&**right).build(buffer)?;
+                Expr(right).build(buffer)?;
                 if need_right_parens {
                     buffer.push(')');
                 }
@@ -110,9 +126,9 @@ impl SqlBuilderWithContext for A_Expr {
             A_Expr_Kind::AEXPR_NOT_DISTINCT => {
                 let left = must!(self.lexpr);
                 let right = must!(self.rexpr);
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 buffer.push_str(" IS NOT DISTINCT FROM ");
-                Expr(&**right).build(buffer)?;
+                Expr(right).build(buffer)?;
             }
             A_Expr_Kind::AEXPR_NULLIF => {
                 let left = must!(self.lexpr);
@@ -129,34 +145,9 @@ impl SqlBuilderWithContext for A_Expr {
 
                 // Build the expression
                 buffer.push_str("NULLIF(");
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 buffer.push_str(", ");
-                Expr(&**right).build(buffer)?;
-                buffer.push(')');
-            }
-            A_Expr_Kind::AEXPR_OF => {
-                let left = must!(self.lexpr);
-                let right = must!(self.rexpr);
-                let right = node!(**right, Node::List);
-                let name = must!(self.name);
-                if name.is_empty() {
-                    return Err(SqlError::Unsupported("Empty name for AEXPR_OF".into()));
-                }
-                let name = string_value!(name[0]);
-
-                Expr(&**left).build(buffer)?;
-                if name.eq("=") {
-                    buffer.push_str(" IS OF ");
-                } else if name.eq("<>") {
-                    buffer.push_str(" IS NOT OF ");
-                } else {
-                    return Err(SqlError::Unsupported(format!(
-                        "Unexpected operator for AEXPR_OF: {}",
-                        name
-                    )));
-                }
-                buffer.push('(');
-                TypeList(&right.items).build(buffer)?;
+                Expr(right).build(buffer)?;
                 buffer.push(')');
             }
             A_Expr_Kind::AEXPR_IN => {
@@ -170,7 +161,7 @@ impl SqlBuilderWithContext for A_Expr {
                 let name = name[0];
 
                 // Start with the left
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 buffer.push(' ');
                 match &name[..] {
                     "=" => buffer.push_str("IN "),
@@ -196,7 +187,7 @@ impl SqlBuilderWithContext for A_Expr {
                 let right = must!(self.rexpr);
 
                 // Start with the left hand side
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 buffer.push(' ');
 
                 // Get the operator name
@@ -219,7 +210,7 @@ impl SqlBuilderWithContext for A_Expr {
                 }
 
                 // Finish up with the right hand side
-                Expr(&**right).build(buffer)?;
+                Expr(right).build(buffer)?;
             }
             A_Expr_Kind::AEXPR_SIMILAR => {
                 let left = must!(self.lexpr);
@@ -231,7 +222,7 @@ impl SqlBuilderWithContext for A_Expr {
                 }
                 let name = string_value!(name[0]);
 
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 if name.eq("~") {
                     buffer.push_str(" SIMILAR TO ");
                 } else if name.eq("!~") {
@@ -291,7 +282,7 @@ impl SqlBuilderWithContext for A_Expr {
                 let name = name[0];
 
                 // Build the expression
-                Expr(&**left).build(buffer)?;
+                Expr(left).build(buffer)?;
                 buffer.push_str(&format!(" {} ", name));
 
                 let mut iter = right.items.iter().peekable();
@@ -302,10 +293,6 @@ impl SqlBuilderWithContext for A_Expr {
                     }
                 }
             }
-            A_Expr_Kind::AEXPR_PAREN => {
-                // Dummy node for parenthesis
-                return Err(SqlError::Unsupported("AEXPR_PAREN".into()));
-            }
         }
         Ok(())
     }
@@ -315,13 +302,13 @@ impl SqlBuilder for A_Indices {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push('[');
         if let Some(ref index) = self.lidx {
-            Expr(&**index).build(buffer)?;
+            Expr(index).build(buffer)?;
         }
         if self.is_slice {
             buffer.push(':');
         }
         if let Some(ref index) = self.uidx {
-            Expr(&**index).build(buffer)?;
+            Expr(index).build(buffer)?;
         }
         buffer.push(']');
         Ok(())
@@ -352,7 +339,7 @@ impl SqlBuilder for A_Indirection {
         if parenthesis {
             buffer.push('(');
         }
-        Expr(&**arg).build(buffer)?;
+        Expr(arg).build(buffer)?;
         if parenthesis {
             buffer.push(')');
         }
@@ -520,7 +507,9 @@ impl SqlBuilderWithContext for AlterTableCmd {
             AlterTableType::AT_NoForceRowSecurity => buffer.push_str("NO FORCE ROW LEVEL SECURITY"),
             AlterTableType::AT_GenericOptions => {} // Handled in def field handling
             AlterTableType::AT_AttachPartition => buffer.push_str("ATTACH PARTITION"),
-            AlterTableType::AT_DetachPartition => buffer.push_str("DETACH PARTITION"),
+            AlterTableType::AT_DetachPartition | AlterTableType::AT_DetachPartitionFinalize => {
+                buffer.push_str("DETACH PARTITION")
+            }
             AlterTableType::AT_AddIdentity => {
                 buffer.push_str("ALTER");
                 options = Some("ADD");
@@ -531,6 +520,17 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 options = Some("DROP IDENTITY");
                 trailing_missing_ok = true;
             }
+
+            AlterTableType::AT_SetCompression => {
+                buffer.push_str("ALTER COLUMN");
+                options = Some("SET COMPRESSION");
+            }
+
+            AlterTableType::AT_SetAccessMethod => {
+                buffer.push_str("SET ACCESS METHOD");
+            }
+
+            AlterTableType::AT_ReAddStatistics => unsupported!(self.subtype),
         }
 
         if self.missing_ok && !trailing_missing_ok {
@@ -566,6 +566,13 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 buffer.push(' ');
                 cmd.build(buffer)?;
             }
+            AlterTableType::AT_DetachPartitionFinalize => {
+                let def = must!(self.def);
+                let cmd = node!(**def, Node::PartitionCmd);
+                buffer.push(' ');
+                cmd.build(buffer)?;
+                buffer.push_str(" FINALIZE");
+            }
             AlterTableType::AT_AddColumn | AlterTableType::AT_AlterColumnType => {
                 let def = must!(self.def);
                 let column = node!(**def, Node::ColumnDef);
@@ -575,13 +582,13 @@ impl SqlBuilderWithContext for AlterTableCmd {
             AlterTableType::AT_ColumnDefault => {
                 if let Some(ref def) = self.def {
                     buffer.push(' ');
-                    Expr(&**def).build(buffer)?;
+                    Expr(def).build(buffer)?;
                 }
             }
             AlterTableType::AT_SetStatistics => {
                 buffer.push(' ');
                 let def = must!(self.def);
-                SignedIConst(&**def).build(buffer)?;
+                SignedIConst(def).build(buffer)?;
             }
             AlterTableType::AT_SetOptions
             | AlterTableType::AT_ResetOptions
@@ -636,6 +643,12 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 buffer.push(' ');
                 stmt.build(buffer)?;
             }
+            AlterTableType::AT_SetCompression => {
+                let def = must!(self.def);
+                let ident = string_value!(**def);
+                buffer.push(' ');
+                buffer.push_str(quote_identifier(ident.as_str()).as_str());
+            }
             _ => {
                 if self.def.is_some() {
                     return Err(SqlError::Unsupported("Unsupported def".into()));
@@ -644,7 +657,7 @@ impl SqlBuilderWithContext for AlterTableCmd {
         }
 
         // Cascade if need be. This adds a space if necessary.
-        OptDropBehavior(&*self.behavior).build(buffer)?;
+        OptDropBehavior(&self.behavior).build(buffer)?;
         Ok(())
     }
 }
@@ -827,7 +840,7 @@ impl SqlBuilder for AlterExtensionStmt {
                 if opt_name.eq("new_version") {
                     let arg = must!(opt.arg);
                     buffer.push_str(" TO ");
-                    NonReservedWordOrSconst(&**arg).build(buffer)?;
+                    NonReservedWordOrSconst(arg).build(buffer)?;
                 }
             }
         }
@@ -891,7 +904,7 @@ impl SqlBuilder for AlterObjectDependsStmt {
             buffer.push_str(" NO");
         }
         buffer.push_str(" DEPENDS ON EXTENSION ");
-        ColId(string_value!(extname.0)).build(buffer)?;
+        ColId(extname).build(buffer)?;
         Ok(())
     }
 }
@@ -978,7 +991,8 @@ impl SqlBuilder for AlterTableStmt {
         let mut context = Context::None;
 
         buffer.push_str("ALTER");
-        match *self.relkind {
+
+        match *self.objtype {
             ObjectType::OBJECT_TABLE => buffer.push_str(" TABLE"),
             ObjectType::OBJECT_FOREIGN_TABLE => buffer.push_str(" FOREIGN TABLE"),
             ObjectType::OBJECT_INDEX => buffer.push_str(" INDEX"),
@@ -1020,7 +1034,7 @@ impl SqlBuilder for CollateClause {
             if paren {
                 buffer.push('(');
             }
-            Expr(&**arg).build(buffer)?;
+            Expr(arg).build(buffer)?;
             if paren {
                 buffer.push(')');
             }
@@ -1046,7 +1060,7 @@ impl SqlBuilder for ColumnDef {
         if let Some(ref raw) = self.raw_default {
             buffer.push(' ');
             buffer.push_str("USING ");
-            Expr(&**raw).build(buffer)?;
+            Expr(raw).build(buffer)?;
         }
         if let Some(ref fdw) = self.fdwoptions {
             buffer.push(' ');
@@ -1076,7 +1090,7 @@ impl SqlBuilder for ColumnRef {
             match node {
                 Node::A_Star(star) => star.build(buffer)?,
                 Node::String {
-                    value: Some(ref value),
+                    sval: Some(ref value),
                 } => buffer.push_str(&quote_identifier(value)),
                 _ => {}
             }
@@ -1237,7 +1251,7 @@ impl SqlBuilder for CommentStmt {
                 buffer.push_str(&quote_identifier(string_value!(list.items[0])));
             }
             ObjectType::OBJECT_LARGEOBJECT => {
-                SqlValue(&**object).build_with_context(buffer, Context::None)?;
+                SqlValue(object).build_with_context(buffer, Context::None)?;
             }
             ObjectType::OBJECT_CAST => {
                 let list = node!(**object, Node::List);
@@ -1288,7 +1302,7 @@ impl SqlBuilder for CommonTableExpr {
         // Finally, the query
         buffer.push('(');
         let query = must!(self.ctequery);
-        PreparableStmt(&**query).build(buffer)?;
+        PreparableStmt(query).build(buffer)?;
         buffer.push(')');
 
         Ok(())
@@ -1330,7 +1344,7 @@ impl SqlBuilder for Constraint {
                 buffer.push_str("DEFAULT");
                 if let Some(ref raw) = self.raw_expr {
                     buffer.push(' ');
-                    Expr(&**raw).build(buffer)?;
+                    Expr(raw).build(buffer)?;
                 }
             }
             ConstrType::CONSTR_IDENTITY => {
@@ -1360,14 +1374,14 @@ impl SqlBuilder for Constraint {
                 }
                 buffer.push_str("GENERATED ALWAYS AS (");
                 if let Some(ref raw) = self.raw_expr {
-                    Expr(&**raw).build(buffer)?;
+                    Expr(raw).build(buffer)?;
                 }
                 buffer.push_str(") STORED");
             }
             ConstrType::CONSTR_CHECK => {
                 buffer.push_str("CHECK (");
                 if let Some(ref raw) = self.raw_expr {
-                    Expr(&**raw).build(buffer)?;
+                    Expr(raw).build(buffer)?;
                 }
                 buffer.push(')');
             }
@@ -1405,7 +1419,7 @@ impl SqlBuilder for Constraint {
                 if let Some(ref where_clause) = self.where_clause {
                     // Don't use a WhereClause for this - handle it here.
                     buffer.push_str(" WHERE (");
-                    Expr(&**where_clause).build(buffer)?;
+                    Expr(where_clause).build(buffer)?;
                     buffer.push(')');
                 }
             }
@@ -1529,10 +1543,10 @@ impl SqlBuilder for CopyStmt {
                 inner_buffer.push(' ');
                 match &**arg {
                     Node::String {
-                        value: Some(ref value),
+                        sval: Some(ref value),
                     } => BooleanOrString(value).build(inner_buffer)?,
                     Node::Integer { .. } | Node::Float { .. } => {
-                        NumericOnly(&**arg).build(inner_buffer)?
+                        NumericOnly(arg).build(inner_buffer)?
                     }
                     Node::A_Star(a_star) => a_star.build(inner_buffer)?,
                     Node::List(list) => {
@@ -1566,7 +1580,7 @@ impl SqlBuilder for CopyStmt {
 
         if let Some(ref query) = self.query {
             buffer.push_str(" (");
-            PreparableStmt(&**query).build(buffer)?;
+            PreparableStmt(query).build(buffer)?;
             buffer.push(')');
         }
 
@@ -1618,7 +1632,7 @@ impl SqlBuilder for CopyStmt {
                             let mut use_default_impl = false;
                             let mut value = None;
                             if let Some(arg) = &element.arg {
-                                let val = int_value!(**arg);
+                                let val = int_value!(**arg).unwrap_or_default();
                                 if val == 1 {
                                     value = Some(val);
                                 } else {
@@ -1715,7 +1729,7 @@ impl SqlBuilder for CreateCastStmt {
         // Function
         if let Some(ref func) = self.func {
             buffer.push_str(" WITH FUNCTION ");
-            FunctionWithArgTypes(&**func).build(buffer)?;
+            FunctionWithArgTypes(func).build(buffer)?;
         } else if self.inout {
             buffer.push_str(" WITH INOUT");
         } else {
@@ -1727,6 +1741,7 @@ impl SqlBuilder for CreateCastStmt {
             CoercionContext::COERCION_IMPLICIT => buffer.push_str(" AS IMPLICIT"),
             CoercionContext::COERCION_ASSIGNMENT => buffer.push_str(" AS ASSIGNMENT"),
             CoercionContext::COERCION_EXPLICIT => {}
+            CoercionContext::COERCION_PLPGSQL => {}
         }
 
         Ok(())
@@ -1802,7 +1817,7 @@ impl SqlBuilder for CreateExtensionStmt {
                     "new_version" => {
                         let arg = must!(elem.arg);
                         buffer.push_str(" VERSION ");
-                        NonReservedWordOrSconst(&**arg).build(buffer)?;
+                        NonReservedWordOrSconst(arg).build(buffer)?;
                     }
                     "cascade" => buffer.push_str(" CASCADE"),
                     unexpected => {
@@ -1900,7 +1915,7 @@ impl SqlBuilder for CreateFunctionStmt {
                 } else if name.eq_ignore_ascii_case("LANGUAGE") {
                     let arg = must!(option.arg);
                     buffer.push_str("LANGUAGE ");
-                    NonReservedWordOrSconst(&**arg).build(buffer)?;
+                    NonReservedWordOrSconst(arg).build(buffer)?;
                 } else if name.eq_ignore_ascii_case("transform") {
                     let arg = must!(option.arg);
                     let list = node!(**arg, Node::List);
@@ -2104,7 +2119,7 @@ impl SqlBuilder for CreateTableAsStmt {
         }
 
         // Relation kind
-        match *self.relkind {
+        match *self.objtype {
             ObjectType::OBJECT_TABLE => buffer.push_str(" TABLE"),
             ObjectType::OBJECT_MATVIEW => buffer.push_str(" MATERIALIZED VIEW"),
             // Unsupported here
@@ -2240,7 +2255,7 @@ impl SqlBuilder for CreateTrigStmt {
 
         if let Some(ref when_clause) = self.when_clause {
             buffer.push_str(" WHEN (");
-            Expr(&**when_clause).build(buffer)?;
+            Expr(when_clause).build(buffer)?;
             buffer.push(')');
         }
 
@@ -2370,7 +2385,7 @@ impl SqlBuilder for DeleteStmt {
 
         if let Some(ref clause) = self.where_clause {
             buffer.push(' ');
-            WhereClause(&**clause).build(buffer)?;
+            WhereClause(clause).build(buffer)?;
         }
 
         if let Some(ref list) = self.returning_list {
@@ -2701,10 +2716,10 @@ impl SqlBuilder for ExplainStmt {
                         match &**arg {
                             Node::Integer { .. } | Node::Float { .. } => {
                                 buffer.push(' ');
-                                NumericOnly(&**arg).build(buffer)?;
+                                NumericOnly(arg).build(buffer)?;
                             }
                             Node::String {
-                                value: Some(ref value),
+                                sval: Some(ref value),
                             } => {
                                 buffer.push(' ');
                                 BooleanOrString(value).build(buffer)?;
@@ -2787,7 +2802,7 @@ impl SqlBuilder for FuncCall {
 
         if let Some(ref filter) = self.agg_filter {
             buffer.push_str(" FILTER (WHERE ");
-            Expr(&**filter).build(buffer)?;
+            Expr(filter).build(buffer)?;
             buffer.push(')');
         }
 
@@ -2807,11 +2822,12 @@ impl SqlBuilder for FuncCall {
 impl SqlBuilder for FunctionParameter {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.mode {
-            FunctionParameterMode::FUNC_PARAM_IN => {} // Default
+            FunctionParameterMode::FUNC_PARAM_IN => buffer.push_str("IN"),
             FunctionParameterMode::FUNC_PARAM_OUT => buffer.push_str("OUT"),
             FunctionParameterMode::FUNC_PARAM_INOUT => buffer.push_str("INOUT"),
             FunctionParameterMode::FUNC_PARAM_VARIADIC => buffer.push_str("VARIADIC"),
             FunctionParameterMode::FUNC_PARAM_TABLE => {} // No special annotation
+            FunctionParameterMode::FUNC_PARAM_DEFAULT => {}
         }
         if let Some(ref name) = self.name {
             if !buffer.ends_with(' ') && !buffer.ends_with('(') {
@@ -2827,7 +2843,7 @@ impl SqlBuilder for FunctionParameter {
         }
         if let Some(ref def_expr) = self.defexpr {
             buffer.push_str(" = ");
-            Expr(&**def_expr).build(buffer)?;
+            Expr(def_expr).build(buffer)?;
         }
         Ok(())
     }
@@ -3011,7 +3027,7 @@ impl SqlBuilder for GrantStmt {
             buffer.push_str(" WITH GRANT OPTION");
         }
 
-        OptDropBehavior(&*self.behavior).build(buffer)?;
+        OptDropBehavior(&self.behavior).build(buffer)?;
         Ok(())
     }
 }
@@ -3167,7 +3183,7 @@ impl SqlBuilder for IndexStmt {
 
         if let Some(ref where_clause) = self.where_clause {
             buffer.push(' ');
-            WhereClause(&**where_clause).build(buffer)?;
+            WhereClause(where_clause).build(buffer)?;
         }
         Ok(())
     }
@@ -3200,7 +3216,7 @@ impl SqlBuilder for InferClause {
             if !buffer.ends_with(' ') {
                 buffer.push(' ');
             }
-            WhereClause(&**clause).build(buffer)?;
+            WhereClause(clause).build(buffer)?;
         }
         Ok(())
     }
@@ -3353,7 +3369,7 @@ impl SqlBuilder for OnConflictClause {
         // Where clause
         if let Some(ref clause) = self.where_clause {
             buffer.push(' ');
-            WhereClause(&**clause).build(buffer)?;
+            WhereClause(clause).build(buffer)?;
         }
         Ok(())
     }
@@ -3424,6 +3440,10 @@ impl SqlBuilder for PartitionCmd {
             buffer.push(' ');
             (**bound).build(buffer)?;
         }
+
+        if self.concurrent {
+            buffer.push_str(" CONCURRENTLY");
+        }
         Ok(())
     }
 }
@@ -3434,7 +3454,7 @@ impl SqlBuilder for PartitionElem {
             ColId(name).build(buffer)?;
         } else if let Some(ref expr) = self.expr {
             buffer.push('(');
-            Expr(&**expr).build(buffer)?;
+            Expr(expr).build(buffer)?;
             buffer.push(')');
         }
 
@@ -3613,12 +3633,12 @@ impl SqlBuilder for RangeTableFunc {
 
         buffer.push('(');
         let expr = must!(self.rowexpr);
-        Expr(&**expr).build(buffer)?;
+        Expr(expr).build(buffer)?;
         buffer.push(')');
 
         buffer.push_str(" PASSING ");
         let expr = must!(self.docexpr);
-        Expr(&**expr).build(buffer)?;
+        Expr(expr).build(buffer)?;
 
         buffer.push_str(" COLUMNS ");
         let columns = must!(self.columns);
@@ -3652,12 +3672,12 @@ impl SqlBuilder for RangeTableFuncCol {
 
             if let Some(ref expr) = self.colexpr {
                 buffer.push_str(" PATH ");
-                Expr(&**expr).build(buffer)?;
+                Expr(expr).build(buffer)?;
             }
 
             if let Some(ref expr) = self.coldefexpr {
                 buffer.push_str(" DEFAULT ");
-                Expr(&**expr).build(buffer)?;
+                Expr(expr).build(buffer)?;
             }
 
             if self.is_not_null {
@@ -3687,7 +3707,7 @@ impl SqlBuilder for RangeTableSample {
 
         if let Some(ref repeatable) = self.repeatable {
             buffer.push_str(" REPEATABLE (");
-            Expr(&**repeatable).build(buffer)?;
+            Expr(repeatable).build(buffer)?;
             buffer.push(')');
         }
         Ok(())
@@ -3872,7 +3892,7 @@ impl SqlBuilder for RenameStmt {
         buffer.push_str(" TO ");
         buffer.push_str(&quote_identifier(must!(self.newname)));
 
-        OptDropBehavior(&*self.behavior).build(buffer)?;
+        OptDropBehavior(&self.behavior).build(buffer)?;
         Ok(())
     }
 }
@@ -3916,6 +3936,7 @@ impl SqlBuilder for RoleSpec {
             RoleSpecType::ROLESPEC_CURRENT_USER => buffer.push_str("CURRENT_USER"),
             RoleSpecType::ROLESPEC_SESSION_USER => buffer.push_str("SESSION_USER"),
             RoleSpecType::ROLESPEC_PUBLIC => buffer.push_str("public"),
+            RoleSpecType::ROLESPEC_CURRENT_ROLE => buffer.push_str("CURRENT_ROLE"),
         }
         Ok(())
     }
@@ -3992,7 +4013,7 @@ impl SqlBuilder for SelectStmt {
 
                 if let Some(ref where_clause) = self.where_clause {
                     buffer.push(' ');
-                    WhereClause(&**where_clause).build(buffer)?;
+                    WhereClause(where_clause).build(buffer)?;
                 }
 
                 // Group by
@@ -4004,7 +4025,7 @@ impl SqlBuilder for SelectStmt {
                 // Having
                 if let Some(ref having) = self.having_clause {
                     buffer.push_str(" HAVING ");
-                    Expr(&**having).build(buffer)?;
+                    Expr(having).build(buffer)?;
                 }
 
                 // Window functions
@@ -4109,8 +4130,8 @@ impl SqlBuilder for SelectStmt {
                 }
             };
 
-            let all = if let Node::A_Const(ref a_const) = **limit {
-                matches!(a_const.val.0, Node::Null {})
+            let all = if let Node::A_Const(ref value) = **limit {
+                matches!(value, ConstValue::Null)
             } else {
                 false
             };
@@ -4137,7 +4158,7 @@ impl SqlBuilder for SelectStmt {
                 buffer.push(' ');
             }
             buffer.push_str("OFFSET ");
-            Expr(&**offset).build(buffer)?;
+            Expr(offset).build(buffer)?;
         }
 
         if let Some(ref locking) = self.locking_clause {
@@ -4156,7 +4177,7 @@ impl SqlBuilder for SelectStmt {
 impl SqlBuilder for SortBy {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let node = must!(self.node);
-        Expr(&**node).build(buffer)?;
+        Expr(node).build(buffer)?;
 
         // Sort order
         match *self.sortby_dir {
@@ -4312,38 +4333,36 @@ impl SqlBuilder for TypeCast {
                 buffer.push(')');
                 return Ok(());
             }
-            Node::A_Const(a_const) => {
+
+            Node::A_Const(value) => {
                 let names = must!(type_name.names);
                 let names = node_vec_to_string_vec(names);
                 if names.len() == 2 && names[0].eq("pg_catalog") {
                     let ty = names[1];
                     if ty.eq("bpchar") && type_name.typmods.is_none() {
                         buffer.push_str("char ");
-                        a_const.build(buffer)?;
+                        value.build(buffer)?;
                         return Ok(());
                     }
-                    if ty.eq("bool") {
-                        if let Node::String {
-                            value: Some(ref value),
-                        } = a_const.val.0
-                        {
-                            match &value[..] {
-                                "t" => buffer.push_str("true"),
-                                "f" => buffer.push_str("false"),
-                                _ => {}
-                            }
-                            return Ok(());
+
+                    if let ConstValue::Bool(value) = value {
+                        if *value {
+                            buffer.push_str("true");
+                        } else {
+                            buffer.push_str("false");
                         }
+                        return Ok(());
                     }
                 }
 
                 // This ensures negative values have wrapping parens
-                match a_const.val.0 {
-                    Node::Float { .. } => parenthesis = true,
-                    Node::Integer { value } if value < 0 => parenthesis = true,
+                match value {
+                    ConstValue::Float(_) => parenthesis = true,
+                    ConstValue::Integer(value) if *value < 0 => parenthesis = true,
                     _ => {}
                 }
             }
+
             _ => {}
         }
 
@@ -4351,7 +4370,7 @@ impl SqlBuilder for TypeCast {
         if parenthesis {
             buffer.push('(');
         }
-        Expr(&**arg).build(buffer)?;
+        Expr(arg).build(buffer)?;
         if parenthesis {
             buffer.push(')');
         }
@@ -4423,8 +4442,7 @@ impl SqlBuilder for TypeName {
                 }
                 "interval" if typmods.is_empty() => buffer.push_str("interval"),
                 "interval" if !typmods.is_empty() => {
-                    let a_const = node!(typmods[0], Node::A_Const);
-                    let fields = int_value!((*a_const.val).0);
+                    let fields = *const_integer!(typmods[0]);
 
                     buffer.push_str("interval");
 
@@ -4458,8 +4476,7 @@ impl SqlBuilder for TypeName {
 
                     if let Some(ref mods) = self.typmods {
                         if mods.len() == 2 {
-                            let a_const = node!(mods[1], Node::A_Const);
-                            let value = int_value!((*(*a_const).val).0);
+                            let value = *const_integer!(mods[1]);
                             if value != constants::interval::FULL_PRECISION {
                                 buffer.push_str(&format!("({})", value))
                             } else {
@@ -4486,7 +4503,7 @@ impl SqlBuilder for TypeName {
                     buffer.push_str(", ");
                 }
                 match typ {
-                    Node::A_Const(a_const) => a_const.build(buffer)?,
+                    Node::A_Const(val) => val.build(buffer)?,
                     Node::ParamRef(param_ref) => param_ref.build(buffer)?,
                     Node::ColumnRef(column_ref) => column_ref.build(buffer)?,
                     ty => return Err(SqlError::UnexpectedNodeType(ty.name())),
@@ -4500,7 +4517,7 @@ impl SqlBuilder for TypeName {
             for bound in bounds {
                 buffer.push('[');
                 match &bound {
-                    Node::Integer { value } if *value >= 0 => {
+                    Node::Integer { ival: Some(value) } if *value >= 0 => {
                         buffer.push_str(&(*value).to_string())
                     }
                     _ => {} // Ignore
@@ -4544,7 +4561,7 @@ impl SqlBuilder for UpdateStmt {
         }
         if let Some(ref clause) = self.where_clause {
             buffer.push(' ');
-            WhereClause(&**clause).build(buffer)?;
+            WhereClause(clause).build(buffer)?;
         }
 
         if let Some(ref returning) = self.returning_list {
@@ -4578,10 +4595,10 @@ impl SqlBuilder for VacuumStmt {
                         buffer.push(' ');
                         match &**arg {
                             Node::Integer { .. } | Node::Float { .. } => {
-                                NumericOnly(&**arg).build(buffer)?
+                                NumericOnly(arg).build(buffer)?
                             }
                             Node::String {
-                                value: Some(ref value),
+                                sval: Some(ref value),
                             } => BooleanOrString(value).build(buffer)?,
                             unexpected => {
                                 return Err(SqlError::UnexpectedNodeType(unexpected.name()))
@@ -4679,8 +4696,8 @@ impl SqlBuilder for VariableSetStmt {
                         if args.is_empty() {
                             return Err(SqlError::Missing("args".into()));
                         }
-                        let arg = node!(args[0], Node::A_Const);
-                        StringLiteral(string_value!((*arg.val).0)).build(buffer)?;
+                        let literal = const_string!(args[0]);
+                        StringLiteral(literal).build(buffer)?;
                     }
                     unsupported => {
                         return Err(SqlError::Unsupported(format!(
@@ -4799,12 +4816,12 @@ impl SqlBuilder for WindowDef {
             } else if self.frame_options & constants::FRAMEOPTION_START_OFFSET_PRECEDING > 0 {
                 let start_offset = must!(self.start_offset);
                 buffer.push(' ');
-                Expr(&**start_offset).build(buffer)?;
+                Expr(start_offset).build(buffer)?;
                 buffer.push_str(" PRECEDING");
             } else if self.frame_options & constants::FRAMEOPTION_START_OFFSET_FOLLOWING > 0 {
                 let start_offset = must!(self.start_offset);
                 buffer.push(' ');
-                Expr(&**start_offset).build(buffer)?;
+                Expr(start_offset).build(buffer)?;
                 buffer.push_str(" FOLLOWING");
             }
 
@@ -4822,12 +4839,12 @@ impl SqlBuilder for WindowDef {
                 } else if self.frame_options & constants::FRAMEOPTION_END_OFFSET_PRECEDING > 0 {
                     let end_offset = must!(self.end_offset);
                     buffer.push(' ');
-                    Expr(&**end_offset).build(buffer)?;
+                    Expr(end_offset).build(buffer)?;
                     buffer.push_str(" PRECEDING");
                 } else if self.frame_options & constants::FRAMEOPTION_END_OFFSET_FOLLOWING > 0 {
                     let end_offset = must!(self.end_offset);
                     buffer.push(' ');
-                    Expr(&**end_offset).build(buffer)?;
+                    Expr(end_offset).build(buffer)?;
                     buffer.push_str(" FOLLOWING");
                 }
             }
@@ -4874,7 +4891,7 @@ impl SqlBuilder for XmlSerialize {
             XmlOptionType::XMLOPTION_CONTENT => buffer.push_str("content "),
         }
         if let Some(ref expr) = self.expr {
-            Expr(&**expr).build(buffer)?;
+            Expr(expr).build(buffer)?;
         }
         buffer.push_str(" AS ");
         if let Some(ref type_name) = self.type_name {
@@ -4958,7 +4975,7 @@ impl SqlBuilder for BoolExpr {
 impl SqlBuilder for BooleanTest {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let arg = must!(self.arg);
-        Expr(&**arg).build(buffer)?;
+        Expr(arg).build(buffer)?;
         match *self.booltesttype {
             BoolTestType::IS_TRUE => buffer.push_str(" IS TRUE"),
             BoolTestType::IS_NOT_TRUE => buffer.push_str(" IS NOT TRUE"),
@@ -4977,7 +4994,7 @@ impl SqlBuilder for CaseExpr {
 
         // Do the case expr
         if let Some(ref arg) = self.arg {
-            Expr(&**arg).build(buffer)?;
+            Expr(arg).build(buffer)?;
             buffer.push(' ');
         }
 
@@ -4991,7 +5008,7 @@ impl SqlBuilder for CaseExpr {
         // else clause
         if let Some(ref else_clause) = self.defresult {
             buffer.push_str("ELSE ");
-            Expr(&**else_clause).build(buffer)?;
+            Expr(else_clause).build(buffer)?;
             buffer.push(' ');
         }
 
@@ -5005,9 +5022,9 @@ impl SqlBuilder for CaseWhen {
         let expr = must!(self.expr);
         let result = must!(self.result);
         buffer.push_str("WHEN ");
-        Expr(&**expr).build(buffer)?;
+        Expr(expr).build(buffer)?;
         buffer.push_str(" THEN ");
-        Expr(&**result).build(buffer)
+        Expr(result).build(buffer)
     }
 }
 
@@ -5094,7 +5111,7 @@ impl SqlBuilder for JoinExpr {
         let join_ref = must!(self.rarg);
 
         // Do the table reference.
-        TableRef(&**table_ref).build(buffer)?;
+        TableRef(table_ref).build(buffer)?;
         buffer.push(' ');
 
         // Is it a natural join?
@@ -5137,7 +5154,7 @@ impl SqlBuilder for JoinExpr {
         if join_parens {
             buffer.push('(');
         }
-        TableRef(&**join_ref).build(buffer)?;
+        TableRef(join_ref).build(buffer)?;
         if join_parens {
             buffer.push(')');
         }
@@ -5145,7 +5162,7 @@ impl SqlBuilder for JoinExpr {
         // Add in the qualifying join columns
         if let Some(ref qualifiers) = self.quals {
             buffer.push_str(" ON ");
-            Expr(&**qualifiers).build(buffer)?;
+            Expr(qualifiers).build(buffer)?;
         }
 
         // Do the using, if any
@@ -5184,7 +5201,7 @@ impl SqlBuilder for MinMaxExpr {
 impl SqlBuilder for NullTest {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let arg = must!(self.arg);
-        Expr(&**arg).build(buffer)?;
+        Expr(arg).build(buffer)?;
         match *self.nulltesttype {
             NullTestType::IS_NULL => buffer.push_str(" IS NULL"),
             NullTestType::IS_NOT_NULL => buffer.push_str(" IS NOT NULL"),
@@ -5234,6 +5251,7 @@ impl SqlBuilder for RowExpr {
                 return Err(SqlError::Unsupported("COERCE_EXPLICIT_CAST".into()))
             }
             CoercionForm::COERCE_IMPLICIT_CAST => {}
+            CoercionForm::COERCE_SQL_SYNTAX => {}
         }
         buffer.push('(');
         ExprList(args).build(buffer)?;
@@ -5291,7 +5309,7 @@ impl SqlBuilder for SubLink {
                 let op = must!(self.oper_name);
 
                 // Build ALL sublink query
-                Expr(&**test).build(buffer)?;
+                Expr(test).build(buffer)?;
                 buffer.push(' ');
                 SubqueryOperator(op).build(buffer)?;
                 buffer.push_str(" ALL (");
@@ -5302,7 +5320,7 @@ impl SqlBuilder for SubLink {
                 let test = must!(self.testexpr);
 
                 // Start with the test
-                Expr(&**test).build(buffer)?;
+                Expr(test).build(buffer)?;
 
                 // Do the operation
                 if let Some(ref op) = self.oper_name {
@@ -5387,14 +5405,12 @@ impl SqlBuilder for XmlExpr {
                 Expr(&args[0]).build(buffer)?;
                 if let Node::TypeCast(ref tc) = args[1] {
                     if let Some(ref inner) = tc.arg {
-                        if let Node::A_Const(ref ac) = **inner {
-                            if let Node::String {
-                                value: Some(ref value),
-                            } = ac.val.0
-                            {
-                                if value.eq("t") {
-                                    buffer.push_str(" PRESERVE WHITESPACE");
-                                }
+                        if let Node::Boolean {
+                            boolval: Some(value),
+                        } = **inner
+                        {
+                            if value {
+                                buffer.push_str(" PRESERVE WHITESPACE");
                             }
                         }
                     }
@@ -5427,8 +5443,8 @@ impl SqlBuilder for XmlExpr {
                     .next()
                     .ok_or_else(|| SqlError::Missing("Missing element (2)".into()))?;
                 match arg {
-                    Node::A_Const(a_const) => {
-                        if let Node::Null {} = (*a_const.val).0 {
+                    Node::A_Const(value) => {
+                        if let ConstValue::Null = value {
                             buffer.push_str("NO VALUE");
                         } else {
                             Expr(arg).build(buffer)?;
@@ -5440,8 +5456,7 @@ impl SqlBuilder for XmlExpr {
                 let arg = args
                     .next()
                     .ok_or_else(|| SqlError::Missing("Missing element (3)".into()))?;
-                let arg = node!(arg, Node::A_Const);
-                let value = int_value!((*arg.val).0);
+                let value = *const_integer!(arg);
 
                 // Guessing a bit here
                 if value == 0 {

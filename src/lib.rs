@@ -25,7 +25,8 @@
 //! let result = result.unwrap();
 //! assert!(matches!(*&result[0], Node::SelectStmt(_)));
 //!
-//! // We can also convert back to a string
+//! // We can also convert back to a string, if the `str` feature is enabled (enabled by default).
+//! #[cfg(feature = "str")]
 //! assert_eq!(result[0].to_string(), "SELECT * FROM contacts");
 //! ```
 //!
@@ -36,6 +37,7 @@ mod bindings;
 mod error;
 mod query;
 mod serde;
+#[cfg(feature = "str")]
 mod str;
 
 pub use error::*;

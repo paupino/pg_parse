@@ -1,7 +1,27 @@
+# Version 0.11
+
+**This release upgrades `libpg_query` so contains breaking changes.**
+
+New:
+* Introduced a `parse_debug` function to allow for consuming functions to inspect the raw JSON output from `libpg_query`. 
+  This is likely only used internally by library authors, but a useful feature nonetheless.
+
+Modified:
+* Updated `libpg_query` to [15-4.2.2](https://github.com/pganalyze/libpg_query/tree/15-4.2.2). This required a lot of refactoring to support the modified
+  AST being generated.
+* String generation is now feature gated under `str`. This feature is not feature complete 
+  so should be used with caution. Please note, this is currently enabled by default.
+
+Other:
+* Bumped the project version to `2021` and updated syntax accordingly.
+
+Please note that some syntax support has been dropped between Postgres version releases. For example,
+the `?` placeholder is no longer supported. For a full list, please see the `libpg_query` changelog.
+
 # Version 0.10
 
 Modified:
-* Updated `libpg_query` to [13.2.2](https://github.com/pganalyze/libpg_query/releases/tag/13-2.2.0).
+* Updated `libpg_query` to [13-2.2.0](https://github.com/pganalyze/libpg_query/releases/tag/13-2.2.0).
 * Build optimization to prevent rebuilding when no changes [#16](https://github.com/paupino/pg_parse/pull/16).
 
 Thank you [@haileys](https://github.com/haileys) for your contribution!

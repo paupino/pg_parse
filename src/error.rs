@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter};
 pub enum Error {
     ParseError(String),
     InvalidAst(String),
+    InvalidAstWithDebug(String, String),
     InvalidJson(String),
 }
 
@@ -13,6 +14,9 @@ impl Display for Error {
         match self {
             Error::ParseError(value) => write!(f, "Parse Error: {}", value),
             Error::InvalidAst(value) => write!(f, "Invalid AST: {}", value),
+            Error::InvalidAstWithDebug(value, debug) => {
+                write!(f, "Invalid AST: {}. Debug: {}", value, debug)
+            }
             Error::InvalidJson(value) => write!(f, "Invalid JSON: {}", value),
         }
     }

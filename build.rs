@@ -208,10 +208,11 @@ fn make_aliases(
     node_types: &HashSet<String>,
     type_resolver: &mut TypeResolver,
 ) -> std::io::Result<()> {
-    const IGNORE: [&str; 5] = [
+    const IGNORE: [&str; 6] = [
         "BlockId",
         "ExpandedObjectHeader",
         "Name",
+        "ParallelVacuumState",
         "ParamListInfo",
         "VacAttrStatsP",
     ];
@@ -354,19 +355,27 @@ fn make_nodes(
             writeln!(out, "    {} {{ }},", name)?;
             continue;
         }
-        // Only one
-        let field = &def.fields[0];
+
+        // If this is an A_Const we handle this specially
+        if name.eq("A_Const") {
+            writeln!(out, "    {name}(ConstValue),")?;
+            continue;
+        }
+
+        // These may have many fields, though we may want to handle that explicitly
         writeln!(out, "    {} {{", name)?;
-        writeln!(
-            out,
-            "        #[serde(rename = \"{}\")]",
-            field.name.as_ref().unwrap(),
-        )?;
-        writeln!(
-            out,
-            "        value: {}",
-            type_resolver.resolve(field.c_type.as_ref().unwrap())
-        )?;
+        for field in &def.fields {
+            let field_name = field.name.as_ref().unwrap();
+            let resolved_type = type_resolver.resolve(field.c_type.as_ref().unwrap());
+            writeln!(out, "        #[serde(default)]")?;
+            // We force each of these as an Option so we can be explicit about when we
+            // want to handle absence of a field.
+            if resolved_type.starts_with("Option<") {
+                writeln!(out, "        {field_name}: {resolved_type},")?;
+            } else {
+                writeln!(out, "        {field_name}: Option<{resolved_type}>,")?;
+            }
+        }
         writeln!(out, "    }},")?;
     }
 
@@ -389,7 +398,7 @@ fn make_nodes(
 
             for field in &def.fields {
                 let (name, c_type) = match (&field.name, &field.c_type) {
-                    (&Some(ref name), &Some(ref c_type)) => (name, c_type),
+                    (Some(name), Some(c_type)) => (name, c_type),
                     _ => continue,
                 };
 
@@ -420,7 +429,7 @@ fn make_nodes(
                         deserializer,
                         if optional { ", default" } else { "" }
                     )?;
-                } else if type_resolver.is_primitive(c_type) {
+                } else if type_resolver.is_optional(c_type) {
                     if has_data {
                         write!(out, ", ")?;
                     }
@@ -506,6 +515,7 @@ impl TypeResolver {
         primitive.insert("[]Node", "Vec<Node>");
         primitive.insert("Node*", "Option<Box<Node>>");
         primitive.insert("Expr*", "Option<Box<Node>>");
+        primitive.insert("String*", "Option<String>");
 
         // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.
         primitive.insert("Bitmapset*", "Option<Vec<u32>>");
@@ -543,10 +553,15 @@ impl TypeResolver {
         self.primitive.contains_key(ty) || self.aliases.get(ty).copied().unwrap_or_default()
     }
 
+    pub fn is_optional(&self, ty: &str) -> bool {
+        self.is_primitive(ty) || ty.ends_with('*')
+    }
+
     pub fn custom_deserializer(ty: &str) -> Option<(&str, bool)> {
         match ty {
             "[]Node" => Some(("crate::serde::deserialize_node_array", false)),
             "List*" => Some(("crate::serde::deserialize_node_array_opt", true)),
+            "String*" => Some(("crate::serde::deserialize_nested_string_opt", true)),
             _ => None,
         }
     }
