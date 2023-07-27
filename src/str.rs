@@ -77,15 +77,7 @@ impl SqlBuilder for Node {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self {
             Node::A_ArrayExpr(a_array_expr) => a_array_expr.build(buffer)?,
-            Node::A_Const { val, isnull } => {
-                if let Some(isnull) = isnull {
-                    if *isnull {
-                        buffer.push_str("NULL")
-                    }
-                } else {
-                    val.build(buffer)?
-                }
-            }
+            Node::A_Const(constant) => constant.build(buffer)?,
             Node::A_Expr(a_expr) => a_expr.build_with_context(buffer, Context::None)?,
             Node::A_Indices(a_indices) => a_indices.build(buffer)?,
             Node::A_Indirection(a_indirection) => a_indirection.build(buffer)?,

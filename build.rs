@@ -356,27 +356,19 @@ fn make_nodes(
             continue;
         }
 
+        // If this is an A_Const we handle this specially
+        if name.eq("A_Const") {
+            writeln!(out, "    {name}(ConstValue),")?;
+            continue;
+        }
+
         // These may have many fields, though we may want to handle that explicitly
         writeln!(out, "    {} {{", name)?;
         for field in &def.fields {
             let field_name = field.name.as_ref().unwrap();
             let resolved_type = type_resolver.resolve(field.c_type.as_ref().unwrap());
-            let make_optional = if name.eq("A_Const") {
-                if resolved_type.contains("ConstValue") {
-                    writeln!(out, "        #[serde(flatten)]")?;
-                    false
-                } else {
-                    true
-                }
-            } else {
-                false
-            };
             writeln!(out, "        #[serde(default)]")?;
-            if make_optional {
-                writeln!(out, "        {field_name}: Option<{resolved_type}>,")?;
-            } else {
-                writeln!(out, "        {field_name}: {resolved_type},")?;
-            }
+            writeln!(out, "        {field_name}: {resolved_type},")?;
         }
         writeln!(out, "    }},")?;
     }
@@ -516,8 +508,6 @@ impl TypeResolver {
         primitive.insert("List*", "Option<Vec<Node>>");
         primitive.insert("[]Node", "Vec<Node>");
         primitive.insert("Node*", "Option<Box<Node>>");
-        // Special case for ConstValue
-        primitive.insert("Node", "ConstValue");
         primitive.insert("Expr*", "Option<Box<Node>>");
 
         // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.

@@ -1,5 +1,5 @@
 use crate::ast::{
-    constants, DefElem, DefElemAction, DropBehavior, Node, ObjectWithArgs, ResTarget,
+    constants, ConstValue, DefElem, DefElemAction, DropBehavior, Node, ObjectWithArgs, ResTarget,
 };
 use crate::str::helpers::{
     is_keyword, is_operator, join_strings, node_vec_to_string_vec, non_reserved_word_or_sconst,
@@ -8,59 +8,120 @@ use crate::str::helpers::{
 use crate::str::{Context, SqlBuilder, SqlBuilderWithContext, SqlError};
 
 pub(in crate::str) struct SqlValue<'a>(pub &'a Node);
+pub(in crate::str) struct SqlConstValue<'a>(pub &'a ConstValue);
+
+struct BoolValue(bool);
+impl SqlBuilderWithContext for BoolValue {
+    fn build_with_context(&self, buffer: &mut String, _context: Context) -> Result<(), SqlError> {
+        if self.0 {
+            buffer.push_str("TRUE");
+        } else {
+            buffer.push_str("FALSE");
+        }
+        Ok(())
+    }
+}
+
+struct IntValue(i64);
+impl SqlBuilderWithContext for IntValue {
+    fn build_with_context(&self, buffer: &mut String, _context: Context) -> Result<(), SqlError> {
+        buffer.push_str(&format!("{}", self.0));
+        Ok(())
+    }
+}
+
+struct FloatValue<'a>(&'a String);
+impl<'a> SqlBuilderWithContext for FloatValue<'a> {
+    fn build_with_context(&self, buffer: &mut String, _context: Context) -> Result<(), SqlError> {
+        buffer.push_str(self.0);
+        Ok(())
+    }
+}
+
+struct StringValue<'a>(&'a String);
+impl<'a> SqlBuilderWithContext for StringValue<'a> {
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
+        match context {
+            Context::Identifier => buffer.push_str(&quote_identifier(self.0)),
+            Context::Constant => StringLiteral(self.0).build(buffer)?,
+            _ => buffer.push_str(self.0),
+        }
+        Ok(())
+    }
+}
+
+struct BitStringValue<'a>(&'a String);
+impl<'a> SqlBuilderWithContext for BitStringValue<'a> {
+    fn build_with_context(&self, buffer: &mut String, _context: Context) -> Result<(), SqlError> {
+        let mut chars = self.0.chars();
+        if let Some(c) = chars.next() {
+            match c {
+                'x' => {
+                    buffer.push('x');
+                    StringLiteral(chars.as_str()).build(buffer)?;
+                }
+                'b' => {
+                    buffer.push('b');
+                    StringLiteral(chars.as_str()).build(buffer)?;
+                }
+                unknown => {
+                    return Err(SqlError::Unsupported(format!(
+                        "Unknown bitstring modifier: {}",
+                        unknown
+                    )))
+                }
+            }
+        } else {
+            return Err(SqlError::Unsupported("Empty bitstring".into()));
+        }
+        Ok(())
+    }
+}
+
 impl SqlBuilderWithContext for SqlValue<'_> {
     fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         match self.0 {
             Node::Boolean { boolval: value } => {
-                if *value {
-                    buffer.push_str("TRUE");
-                } else {
-                    buffer.push_str("FALSE");
-                }
+                BoolValue(*value).build_with_context(buffer, context)?
             }
-            Node::Integer { ival: value } => buffer.push_str(&format!("{}", *value)),
+            Node::Integer { ival: value } => {
+                IntValue(*value).build_with_context(buffer, context)?
+            }
             Node::Float { fval } => {
                 if let Some(value) = fval {
-                    buffer.push_str(value);
+                    FloatValue(value).build_with_context(buffer, context)?;
                 }
             }
             Node::String { sval } => {
                 if let Some(value) = sval {
-                    match context {
-                        Context::Identifier => buffer.push_str(&quote_identifier(value)),
-                        Context::Constant => StringLiteral(value).build(buffer)?,
-                        _ => buffer.push_str(value),
-                    }
+                    StringValue(value).build_with_context(buffer, context)?;
                 }
             }
             Node::BitString { bsval } => {
                 if let Some(value) = bsval {
-                    let mut chars = value.chars();
-                    if let Some(c) = chars.next() {
-                        match c {
-                            'x' => {
-                                buffer.push('x');
-                                StringLiteral(chars.as_str()).build(buffer)?;
-                            }
-                            'b' => {
-                                buffer.push('b');
-                                StringLiteral(chars.as_str()).build(buffer)?;
-                            }
-                            unknown => {
-                                return Err(SqlError::Unsupported(format!(
-                                    "Unknown bitstring modifier: {}",
-                                    unknown
-                                )))
-                            }
-                        }
-                    } else {
-                        return Err(SqlError::Unsupported("Empty bitstring".into()));
-                    }
+                    BitStringValue(value).build_with_context(buffer, context)?;
                 } else {
                     return Err(SqlError::Unsupported("Empty bitstring".into()));
                 }
             }
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+        }
+        Ok(())
+    }
+}
+
+impl SqlBuilderWithContext for SqlConstValue<'_> {
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
+        match self.0 {
+            ConstValue::Bool(value) => BoolValue(*value).build_with_context(buffer, context)?,
+            ConstValue::Integer(value) => IntValue(*value).build_with_context(buffer, context)?,
+            ConstValue::Float(value) => FloatValue(value).build_with_context(buffer, context)?,
+            ConstValue::String(value) => StringValue(value).build_with_context(buffer, context)?,
+            ConstValue::BitString(value) => {
+                BitStringValue(value).build_with_context(buffer, context)?
+            }
+            ConstValue::Null => buffer.push_str("NULL"),
+            ConstValue::NotNull => buffer.push_str("NOT NULL"),
         }
         Ok(())
     }
@@ -647,7 +708,7 @@ impl SqlBuilder for Expr<'_> {
             Node::FuncCall(inner) => inner.build(buffer)?,
             Node::XmlExpr(inner) => inner.build(buffer)?,
             Node::TypeCast(inner) => inner.build(buffer)?,
-            Node::A_Const { val, .. } => val.build(buffer)?,
+            Node::A_Const(inner) => inner.build(buffer)?,
             Node::ColumnRef(inner) => inner.build(buffer)?,
             Node::A_Expr(inner) => inner.build_with_context(buffer, Context::None)?,
             Node::CaseExpr(inner) => inner.build(buffer)?,

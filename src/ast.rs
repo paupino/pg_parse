@@ -23,6 +23,7 @@ pub enum ConstValue {
     String(String),
     BitString(String),
     Null,
+    NotNull,
 }
 
 impl ConstValue {
@@ -34,6 +35,7 @@ impl ConstValue {
             ConstValue::String(_) => "ConstString",
             ConstValue::BitString(_) => "ConstBitString",
             ConstValue::Null => "ConstNull",
+            ConstValue::NotNull => "ConstNotNull",
         }
     }
 }

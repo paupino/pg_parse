@@ -21,7 +21,7 @@ macro_rules! node {
 macro_rules! const_integer {
     ($expr:expr) => {
         match &$expr {
-            Node::A_Const { val: value, .. } => match &value {
+            Node::A_Const(value) => match &value {
                 crate::ast::ConstValue::Integer(value) => value,
                 unexpected => return Err(SqlError::UnexpectedConstValue(unexpected.name())),
             },
@@ -33,7 +33,7 @@ macro_rules! const_integer {
 macro_rules! const_string {
     ($expr:expr) => {
         match &$expr {
-            Node::A_Const { val: value, .. } => match &value {
+            Node::A_Const(value) => match &value {
                 crate::ast::ConstValue::String(value) => value,
                 unexpected => return Err(SqlError::UnexpectedConstValue(unexpected.name())),
             },

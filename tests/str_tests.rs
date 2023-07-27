@@ -2,8 +2,8 @@ use regex::Regex;
 
 fn execute_tests<const N: usize>(tests: [&str; N]) {
     for test in tests {
-        let tree = match pg_parse::parse(test) {
-            Ok(tree) => tree,
+        let (tree, debug) = match pg_parse::parse_debug(test) {
+            Ok((tree, debug)) => (tree, debug),
             Err(e) => panic!("Failed to parse: {}: \"{}\"", e, test),
         };
 
@@ -15,8 +15,8 @@ fn execute_tests<const N: usize>(tests: [&str; N]) {
             .join("; ");
         assert_eq!(
             test, sql,
-            "expected <> generated to_string:\n\n{:?}\n\n",
-            tree
+            "expected <> generated to_string:\n\n{:?}\n\nDebug: {}\n\n",
+            tree, debug,
         );
 
         // Parse it back and compare the original trees
@@ -79,11 +79,11 @@ fn it_correctly_converts_to_string_for_select_tests() {
         "SELECT * FROM x WHERE id IN (SELECT id FROM account)",
         "SELECT * FROM x WHERE id NOT IN (1, 2, 3)",
         "SELECT * FROM x INNER JOIN (SELECT n FROM z) b ON a.id = b.id",
-        "SELECT * FROM x WHERE y = z[?]",
+        "SELECT * FROM x WHERE y = z[$1]",
         "SELECT (foo(1)).y",
         "SELECT proname, (SELECT regexp_split_to_array(proargtypes::text, ' '))[idx] AS argtype, proargnames[idx] AS argname FROM pg_proc",
         "SELECT COALESCE((SELECT customer.sp_person(n.id) AS sp_person).city_id, NULL::int) AS city_id FROM customer.tb_customer n",
-        "SELECT * FROM x WHERE y = z[?][?]",
+        "SELECT * FROM x WHERE y = z[$1][$2]",
         "SELECT (k #= hstore('{id}'::text[], ARRAY[1::text])).* FROM test k",
         "SELECT * FROM x WHERE NOT y",
         "SELECT * FROM x WHERE x OR y",
@@ -209,7 +209,7 @@ fn it_correctly_converts_to_string_for_with_tests() {
     let tests = [
         "WITH kodsis AS (SELECT * FROM application), kodsis2 AS (SELECT * FROM application) SELECT * FROM kodsis UNION SELECT * FROM kodsis ORDER BY id DESC",
         "WITH t AS (SELECT random() AS x FROM generate_series(1, 3)) SELECT * FROM t",
-        "WITH RECURSIVE search_graph(id, link, data, depth, path, cycle) AS (SELECT g.id, g.link, g.data, 1, ARRAY[ROW(g.f1, g.f2)], false FROM graph g UNION ALL SELECT g.id, g.link, g.data, sg.depth + 1, path || ROW(g.f1, g.f2), ROW(g.f1, g.f2) = ANY(path) FROM graph g, search_graph sg WHERE g.id = sg.link AND NOT cycle) SELECT id, data, link FROM search_graph",
+        "WITH RECURSIVE search_graph(id, link, data, depth, path, cycle) AS (SELECT g.id, g.link, g.data, 1, ARRAY[ROW(g.f1, g.f2)], FALSE FROM graph g UNION ALL SELECT g.id, g.link, g.data, sg.depth + 1, path || ROW(g.f1, g.f2), ROW(g.f1, g.f2) = ANY(path) FROM graph g, search_graph sg WHERE g.id = sg.link AND NOT cycle) SELECT id, data, link FROM search_graph",
         "WITH moved AS (DELETE FROM employees WHERE manager_name = 'Mary') INSERT INTO employees_of_mary SELECT * FROM moved",
         "WITH archived AS (DELETE FROM employees WHERE manager_name = 'Mary') UPDATE users SET archived = TRUE WHERE users.id IN (SELECT user_id FROM moved)",
         "WITH archived AS (DELETE FROM employees WHERE manager_name = 'Mary' RETURNING user_id) UPDATE users SET archived = TRUE FROM archived WHERE archived.user_id = id RETURNING id",
@@ -401,7 +401,7 @@ fn it_correctly_converts_to_string_for_drop_tests() {
 #[test]
 fn it_correctly_converts_to_string_for_alter_obj_tests() {
     let tests = [
-        "ALTER TABLE distributors DROP CONSTRAINT distributors_pkey, ADD CONSTRAINT distributors_pkey PRIMARY KEY USING INDEX dist_id_temp_idx, ADD CONSTRAINT zipchk CHECK (char_length(zipcode) = 5), ALTER COLUMN tstamp DROP DEFAULT, ALTER COLUMN tstamp TYPE timestamp with time zone USING 'epoch'::timestamp with time zone + (date_part('epoch', tstamp) * '1 second'::interval), ALTER COLUMN tstamp SET DEFAULT now(), ALTER COLUMN tstamp DROP DEFAULT, ALTER COLUMN tstamp SET STATISTICS -5, ADD COLUMN some_int int NOT NULL, DROP COLUMN IF EXISTS other_column CASCADE",
+        "ALTER TABLE distributors DROP CONSTRAINT distributors_pkey, ADD CONSTRAINT distributors_pkey PRIMARY KEY USING INDEX dist_id_temp_idx, ADD CONSTRAINT zipchk CHECK (char_length(zipcode) = 5), ALTER COLUMN tstamp DROP DEFAULT, ALTER COLUMN tstamp TYPE timestamp with time zone USING 'epoch'::timestamp with time zone + (date_part('epoch', tstamp) * '1 second'::interval), ALTER COLUMN tstamp SET DEFAULT now(), ALTER COLUMN tstamp DROP DEFAULT, ALTER COLUMN tstamp SET STATISTICS 5, ADD COLUMN some_int int NOT NULL, DROP COLUMN IF EXISTS other_column CASCADE",
         "ALTER TABLE distributors ADD CONSTRAINT distfk FOREIGN KEY (address) REFERENCES addresses (address)",
         "ALTER TABLE distributors ADD CONSTRAINT distfk FOREIGN KEY (address) REFERENCES addresses (address) NOT VALID",
         "ALTER TABLE a ALTER COLUMN b SET DEFAULT 1",

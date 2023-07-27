@@ -99,10 +99,12 @@ impl<'de> serde::Deserialize<'de> for ConstValue {
             {
                 #[derive(Deserialize)]
                 struct BoolValue {
+                    #[serde(default)]
                     boolval: bool,
                 }
                 #[derive(Deserialize)]
                 struct IntValue {
+                    #[serde(default)]
                     ival: i64,
                 }
 
@@ -159,9 +161,14 @@ impl<'de> serde::Deserialize<'de> for ConstValue {
                             maybe_location(map)?;
                             Ok(ConstValue::BitString(value.bsval))
                         }
-                        "location" => {
-                            let _location = map.next_value::<i32>()?;
-                            Ok(ConstValue::Null)
+                        "isnull" => {
+                            let null = map.next_value::<bool>()?;
+                            maybe_location(map)?;
+                            if null {
+                                Ok(ConstValue::Null)
+                            } else {
+                                Ok(ConstValue::NotNull)
+                            }
                         }
                         unknown => Err(Error::unknown_field(
                             unknown,
@@ -203,10 +210,7 @@ mod tests {
         assert_eq!(1, nodes.values.len());
         assert!(matches!(
             nodes.values[0],
-            Node::A_Const {
-                isnull: None,
-                val: ConstValue::Integer(10)
-            }
+            Node::A_Const(ConstValue::Integer(10))
         ))
     }
 
@@ -338,28 +342,36 @@ mod tests {
         // Consequently, this test covers these cases
         let null_json = "{ \"A_Const\": { \"isnull\": true, \"location\": 323 } }";
         let null_const: Node = serde_json::from_str(null_json).expect("Failed to deserialize");
-        let Node::A_Const { isnull, val } = null_const else {
+        let Node::A_Const(ConstValue::Null) = null_const else {
             panic!("Expected A_Const node: {:#?}", null_const);
         };
-        assert!(isnull.is_some(), "Expected isnull to be Some");
-        assert!(isnull.unwrap(), "Expected isnull to be true");
-        // assert_eq!(val, None, "Expected val to be None");
 
         let ival_json = "{ \"A_Const\": { \"ival\": { \"ival\": 1 }, \"location\": 123 } }";
         let ival_const: Node = serde_json::from_str(ival_json).expect("Failed to deserialize");
-        let Node::A_Const { isnull, val } = ival_const else {
+        let Node::A_Const(ConstValue::Integer(val)) = ival_const else {
             panic!("Expected A_Const node: {:#?}", ival_const);
         };
-        assert!(isnull.is_none(), "Expected isnull to be None");
-        assert_eq!(val, ConstValue::Integer(1), "Expected val to be an integer");
+        assert_eq!(val, 1);
+    }
+
+    #[test]
+    fn it_can_parse_an_empty_constant() {
+        // This defaults to 0 - this is because it exits libpg_query like this, even for zero's.
+        // We should keep an eye on this as 0 could be different than absence of data in the future.
+        let json = "{ \"A_Const\": { \"ival\": {}, \"location\": 38 } }";
+        let node: Node = serde_json::from_str(json).unwrap();
+        assert!(
+            matches!(node, Node::A_Const(ConstValue::Integer(0))),
+            "Expected integer constant to default to 0"
+        );
     }
 
     #[test]
     fn it_can_parse_empty_nodes() {
-        let json = "{\"Integer\":{}}";
-        let node: Node = serde_json::from_str(json).unwrap();
         // This defaults to 0 - this is because it exits libpg_query like this, even for zero's.
         // We should keep an eye on this as 0 could be different than absence of data in the future.
+        let json = "{\"Integer\":{}}";
+        let node: Node = serde_json::from_str(json).unwrap();
         assert!(
             matches!(node, Node::Integer { ival: 0 }),
             "Expected integer node to default to 0"

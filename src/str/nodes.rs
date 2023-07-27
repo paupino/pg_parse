@@ -25,22 +25,7 @@ impl SqlBuilder for &Option<ConstValue> {
 
 impl SqlBuilder for ConstValue {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
-        // TODO: Reverse this generation to avoid the need for clones
-        let node = match self {
-            ConstValue::Bool(value) => Node::Boolean { boolval: *value },
-            ConstValue::Integer(value) => Node::Integer { ival: *value },
-            ConstValue::Float(value) => Node::Float {
-                fval: Some(value.clone()),
-            },
-            ConstValue::String(value) => Node::String {
-                sval: Some(value.clone()),
-            },
-            ConstValue::BitString(value) => Node::BitString {
-                bsval: Some(value.clone()),
-            },
-            ConstValue::Null => return Ok(()),
-        };
-        SqlValue(&node).build_with_context(buffer, Context::Constant)
+        SqlConstValue(&self).build_with_context(buffer, Context::Constant)
     }
 }
 
@@ -4114,12 +4099,8 @@ impl SqlBuilder for SelectStmt {
                 }
             };
 
-            let all = if let Node::A_Const {
-                isnull: Some(is_null),
-                ..
-            } = **limit
-            {
-                is_null
+            let all = if let Node::A_Const(ref value) = **limit {
+                matches!(value, ConstValue::Null)
             } else {
                 false
             };
@@ -4322,7 +4303,7 @@ impl SqlBuilder for TypeCast {
                 return Ok(());
             }
 
-            Node::A_Const { val: value, .. } => {
+            Node::A_Const(value) => {
                 let names = must!(type_name.names);
                 let names = node_vec_to_string_vec(names);
                 if names.len() == 2 && names[0].eq("pg_catalog") {
@@ -4491,7 +4472,7 @@ impl SqlBuilder for TypeName {
                     buffer.push_str(", ");
                 }
                 match typ {
-                    Node::A_Const { val, .. } => val.build(buffer)?,
+                    Node::A_Const(val) => val.build(buffer)?,
                     Node::ParamRef(param_ref) => param_ref.build(buffer)?,
                     Node::ColumnRef(column_ref) => column_ref.build(buffer)?,
                     ty => return Err(SqlError::UnexpectedNodeType(ty.name())),
@@ -5428,8 +5409,8 @@ impl SqlBuilder for XmlExpr {
                     .next()
                     .ok_or_else(|| SqlError::Missing("Missing element (2)".into()))?;
                 match arg {
-                    Node::A_Const { isnull, .. } => {
-                        if isnull.unwrap_or_default() {
+                    Node::A_Const(value) => {
+                        if let ConstValue::Null = value {
                             buffer.push_str("NO VALUE");
                         } else {
                             Expr(arg).build(buffer)?;
