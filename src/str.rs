@@ -308,6 +308,7 @@ impl SqlBuilder for Node {
             | Node::Integer { .. }
             | Node::String { .. } => SqlValue(self).build_with_context(buffer, Context::None)?,
 
+            // TODO: Implement these
             _ => todo!(), // Node::AlterDatabaseRefreshCollStmt(_) => {}
                           // Node::CTECycleClause(_) => {}
                           // Node::CTESearchClause(_) => {}

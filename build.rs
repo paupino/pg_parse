@@ -423,7 +423,7 @@ fn make_nodes(
                         deserializer,
                         if optional { ", default" } else { "" }
                     )?;
-                } else if type_resolver.is_primitive(c_type) {
+                } else if type_resolver.is_optional(c_type) {
                     if has_data {
                         write!(out, ", ")?;
                     }
@@ -509,6 +509,7 @@ impl TypeResolver {
         primitive.insert("[]Node", "Vec<Node>");
         primitive.insert("Node*", "Option<Box<Node>>");
         primitive.insert("Expr*", "Option<Box<Node>>");
+        primitive.insert("String*", "Option<String>");
 
         // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.
         primitive.insert("Bitmapset*", "Option<Vec<u32>>");
@@ -546,10 +547,15 @@ impl TypeResolver {
         self.primitive.contains_key(ty) || self.aliases.get(ty).copied().unwrap_or_default()
     }
 
+    pub fn is_optional(&self, ty: &str) -> bool {
+        return self.is_primitive(ty) || ty.ends_with('*');
+    }
+
     pub fn custom_deserializer(ty: &str) -> Option<(&str, bool)> {
         match ty {
             "[]Node" => Some(("crate::serde::deserialize_node_array", false)),
             "List*" => Some(("crate::serde::deserialize_node_array_opt", true)),
+            "String*" => Some(("crate::serde::deserialize_nested_string_opt", true)),
             _ => None,
         }
     }

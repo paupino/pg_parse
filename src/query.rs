@@ -91,8 +91,8 @@ pub fn parse_debug(stmt: &str) -> Result<(Vec<crate::ast::Node>, String)> {
         // Parse the JSON into the AST
         let raw = CStr::from_ptr(result.parse_tree);
         let debug = raw.to_string_lossy().to_string();
-        let parsed: ParseResult =
-            serde_json::from_slice(raw.to_bytes()).map_err(|e| Error::InvalidAst(e.to_string()))?;
+        let parsed: ParseResult = serde_json::from_slice(raw.to_bytes())
+            .map_err(|e| Error::InvalidAstWithDebug(e.to_string(), debug.to_string()))?;
         pg_query_free_parse_result(result);
         Ok((parsed.stmts.into_iter().map(|s| s.stmt).collect(), debug))
     }

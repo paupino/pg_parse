@@ -875,6 +875,7 @@ impl SqlBuilder for VarList<'_> {
                 buffer.push_str(", ");
             }
             match node {
+                Node::A_Const(inner) => inner.build_with_context(buffer, Context::Identifier)?,
                 Node::ParamRef(param) => param.build(buffer)?,
                 Node::Integer { ival: value } => buffer.push_str(&format!("{}", *value)),
                 Node::Float { fval: Some(value) } => buffer.push_str(value),
@@ -936,7 +937,7 @@ impl SqlBuilder for TransactionModeList<'_> {
             let arg = must!(item.arg);
             match &name[..] {
                 "transaction_isolation" => {
-                    let value = string_value!(&**arg);
+                    let value = const_string!(&**arg);
                     buffer.push_str("ISOLATION LEVEL ");
                     match &value[..] {
                         "read uncommitted" => buffer.push_str("READ UNCOMMITTED"),
@@ -952,27 +953,37 @@ impl SqlBuilder for TransactionModeList<'_> {
                     }
                 }
                 "transaction_read_only" => {
-                    // TODO: Confirm this isn't a boolean now
-                    match &**arg {
-                        Node::Integer { ival: 0 } => {
+                    let value = const_integer!(&**arg);
+                    match *value {
+                        0 => {
                             buffer.push_str("READ WRITE");
                         }
-                        Node::Integer { ival: 1 } => {
+                        1 => {
                             buffer.push_str("READ ONLY");
                         }
-                        unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+                        unexpected => {
+                            return Err(SqlError::Unsupported(format!(
+                                "Unexpected transaction_read_only value: {}",
+                                unexpected
+                            )))
+                        }
                     };
                 }
                 "transaction_deferrable" => {
-                    // TODO: Confirm this isn't a boolean now
-                    match &**arg {
-                        Node::Integer { ival: 0 } => {
+                    let value = const_integer!(&**arg);
+                    match *value {
+                        0 => {
                             buffer.push_str("NOT DEFERRABLE");
                         }
-                        Node::Integer { ival: 1 } => {
+                        1 => {
                             buffer.push_str("DEFERRABLE");
                         }
-                        unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+                        unexpected => {
+                            return Err(SqlError::Unsupported(format!(
+                                "Unexpected transaction_deferrable value: {}",
+                                unexpected
+                            )))
+                        }
                     };
                 }
                 unsupported => {

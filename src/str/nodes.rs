@@ -29,6 +29,12 @@ impl SqlBuilder for ConstValue {
     }
 }
 
+impl SqlBuilderWithContext for ConstValue {
+    fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
+        SqlConstValue(&self).build_with_context(buffer, context)
+    }
+}
+
 impl SqlBuilderWithContext for A_Expr {
     fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         fn need_parenthesis(expr: &Option<Box<Node>>) -> bool {
@@ -513,6 +519,7 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 trailing_missing_ok = true;
             }
 
+            // TODO: Implement these
             _ => todo!(), // AlterTableType::AT_SetCompression => {}
                           // AlterTableType::AT_SetAccessMethod => {}
                           // AlterTableType::AT_DetachPartitionFinalize => {}
@@ -1714,6 +1721,7 @@ impl SqlBuilder for CreateCastStmt {
             CoercionContext::COERCION_IMPLICIT => buffer.push_str(" AS IMPLICIT"),
             CoercionContext::COERCION_ASSIGNMENT => buffer.push_str(" AS ASSIGNMENT"),
             CoercionContext::COERCION_EXPLICIT => {}
+            // TODO: Implement these
             CoercionContext::COERCION_PLPGSQL => todo!(),
         }
 
@@ -2800,6 +2808,7 @@ impl SqlBuilder for FunctionParameter {
             FunctionParameterMode::FUNC_PARAM_INOUT => buffer.push_str("INOUT"),
             FunctionParameterMode::FUNC_PARAM_VARIADIC => buffer.push_str("VARIADIC"),
             FunctionParameterMode::FUNC_PARAM_TABLE => {} // No special annotation
+            // TODO: Implement these
             FunctionParameterMode::FUNC_PARAM_DEFAULT => todo!(),
         }
         if let Some(ref name) = self.name {
@@ -3905,6 +3914,7 @@ impl SqlBuilder for RoleSpec {
             RoleSpecType::ROLESPEC_CURRENT_USER => buffer.push_str("CURRENT_USER"),
             RoleSpecType::ROLESPEC_SESSION_USER => buffer.push_str("SESSION_USER"),
             RoleSpecType::ROLESPEC_PUBLIC => buffer.push_str("public"),
+            // TODO: Implement these
             RoleSpecType::ROLESPEC_CURRENT_ROLE => todo!(),
         }
         Ok(())
@@ -5220,6 +5230,7 @@ impl SqlBuilder for RowExpr {
                 return Err(SqlError::Unsupported("COERCE_EXPLICIT_CAST".into()))
             }
             CoercionForm::COERCE_IMPLICIT_CAST => {}
+            // TODO: Implement these
             CoercionForm::COERCE_SQL_SYNTAX => todo!(),
         }
         buffer.push('(');

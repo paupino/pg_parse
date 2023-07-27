@@ -79,6 +79,70 @@ where
     deserializer.deserialize_option(NodeArrayOpt)
 }
 
+pub(crate) fn deserialize_nested_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct NestedString;
+    impl<'de> Visitor<'de> for NestedString {
+        type Value = String;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("String")
+        }
+
+        fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+        where
+            V: serde::de::MapAccess<'de>,
+        {
+            if let Some(key) = map.next_key::<String>()? {
+                if key.ne("sval") {
+                    return Err(Error::missing_field("sval"));
+                }
+                let value = map.next_value::<String>()?;
+                Ok(value)
+            } else {
+                Err(Error::missing_field("sval"))
+            }
+        }
+    }
+
+    deserializer.deserialize_map(NestedString)
+}
+
+pub(crate) fn deserialize_nested_string_opt<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct NestedStringOpt;
+    impl<'de> Visitor<'de> for NestedStringOpt {
+        type Value = Option<String>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("Option<String>")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = deserialize_nested_string(deserializer)?;
+            Ok(Some(value))
+        }
+    }
+
+    deserializer.deserialize_option(NestedStringOpt)
+}
+
 impl<'de> serde::Deserialize<'de> for ConstValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -172,7 +236,7 @@ impl<'de> serde::Deserialize<'de> for ConstValue {
                         }
                         unknown => Err(Error::unknown_field(
                             unknown,
-                            &["boolval", "ival", "fval", "sval", "bsval"],
+                            &["boolval", "ival", "fval", "sval", "bsval", "isnull"],
                         )),
                     }
                 } else {
@@ -376,5 +440,24 @@ mod tests {
             matches!(node, Node::Integer { ival: 0 }),
             "Expected integer node to default to 0"
         );
+    }
+
+    #[test]
+    fn it_can_parse_directly_nested_strings() {
+        #[derive(Deserialize)]
+        struct Test {
+            #[serde(
+                deserialize_with = "crate::serde::deserialize_nested_string_opt",
+                default
+            )]
+            extname: Option<String>,
+        }
+        let json = "{\"extname\":{\"sval\":\"a\"}}";
+        let node: Test = serde_json::from_str(json).unwrap();
+        assert_eq!(node.extname, Some("a".to_string()));
+
+        let json = "{}";
+        let node: Test = serde_json::from_str(json).unwrap();
+        assert_eq!(node.extname, None);
     }
 }

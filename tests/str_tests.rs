@@ -6,6 +6,7 @@ fn execute_tests<const N: usize>(tests: [&str; N]) {
             Ok((tree, debug)) => (tree, debug),
             Err(e) => panic!("Failed to parse: {}: \"{}\"", e, test),
         };
+        // println!("Tree: {:?}, Debug: {}", tree, debug);
 
         // Compare converting this back to a string
         let sql = tree
@@ -444,7 +445,7 @@ fn it_correctly_converts_to_string_for_alter_obj_tests() {
         "ALTER ROUTINE x(y) DEPENDS ON EXTENSION a",
         "ALTER TRIGGER x ON y DEPENDS ON EXTENSION a",
         "ALTER MATERIALIZED VIEW x DEPENDS ON EXTENSION a",
-        "ALTER SYSTEM SET fsync TO OFF",
+        "ALTER SYSTEM SET fsync TO off",
         "ALTER SYSTEM RESET fsync",
     ];
     execute_tests(tests)
