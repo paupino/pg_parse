@@ -507,7 +507,9 @@ impl SqlBuilderWithContext for AlterTableCmd {
             AlterTableType::AT_NoForceRowSecurity => buffer.push_str("NO FORCE ROW LEVEL SECURITY"),
             AlterTableType::AT_GenericOptions => {} // Handled in def field handling
             AlterTableType::AT_AttachPartition => buffer.push_str("ATTACH PARTITION"),
-            AlterTableType::AT_DetachPartition => buffer.push_str("DETACH PARTITION"),
+            AlterTableType::AT_DetachPartition | AlterTableType::AT_DetachPartitionFinalize => {
+                buffer.push_str("DETACH PARTITION")
+            }
             AlterTableType::AT_AddIdentity => {
                 buffer.push_str("ALTER");
                 options = Some("ADD");
@@ -519,11 +521,16 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 trailing_missing_ok = true;
             }
 
-            // TODO: Implement these
-            _ => todo!("AlterTableType: {:?}", self), // AlterTableType::AT_SetCompression => {}
-                                                      // AlterTableType::AT_SetAccessMethod => {}
-                                                      // AlterTableType::AT_DetachPartitionFinalize => {}
-                                                      // AlterTableType::AT_ReAddStatistics => {}
+            AlterTableType::AT_SetCompression => {
+                buffer.push_str("ALTER COLUMN");
+                options = Some("SET COMPRESSION");
+            }
+
+            AlterTableType::AT_SetAccessMethod => {
+                buffer.push_str("SET ACCESS METHOD");
+            }
+
+            AlterTableType::AT_ReAddStatistics => unsupported!(self.subtype),
         }
 
         if self.missing_ok && !trailing_missing_ok {
@@ -558,6 +565,13 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 let cmd = node!(**def, Node::PartitionCmd);
                 buffer.push(' ');
                 cmd.build(buffer)?;
+            }
+            AlterTableType::AT_DetachPartitionFinalize => {
+                let def = must!(self.def);
+                let cmd = node!(**def, Node::PartitionCmd);
+                buffer.push(' ');
+                cmd.build(buffer)?;
+                buffer.push_str(" FINALIZE");
             }
             AlterTableType::AT_AddColumn | AlterTableType::AT_AlterColumnType => {
                 let def = must!(self.def);
@@ -628,6 +642,12 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 let stmt = node!(**def, Node::ReplicaIdentityStmt);
                 buffer.push(' ');
                 stmt.build(buffer)?;
+            }
+            AlterTableType::AT_SetCompression => {
+                let def = must!(self.def);
+                let ident = string_value!(**def);
+                buffer.push(' ');
+                buffer.push_str(quote_identifier(ident.as_str()).as_str());
             }
             _ => {
                 if self.def.is_some() {
@@ -1721,8 +1741,7 @@ impl SqlBuilder for CreateCastStmt {
             CoercionContext::COERCION_IMPLICIT => buffer.push_str(" AS IMPLICIT"),
             CoercionContext::COERCION_ASSIGNMENT => buffer.push_str(" AS ASSIGNMENT"),
             CoercionContext::COERCION_EXPLICIT => {}
-            // TODO: Implement these
-            CoercionContext::COERCION_PLPGSQL => todo!("COERCION_PLPGSQL"),
+            CoercionContext::COERCION_PLPGSQL => {}
         }
 
         Ok(())
@@ -3421,6 +3440,10 @@ impl SqlBuilder for PartitionCmd {
             buffer.push(' ');
             (**bound).build(buffer)?;
         }
+
+        if self.concurrent {
+            buffer.push_str(" CONCURRENTLY");
+        }
         Ok(())
     }
 }
@@ -3913,8 +3936,7 @@ impl SqlBuilder for RoleSpec {
             RoleSpecType::ROLESPEC_CURRENT_USER => buffer.push_str("CURRENT_USER"),
             RoleSpecType::ROLESPEC_SESSION_USER => buffer.push_str("SESSION_USER"),
             RoleSpecType::ROLESPEC_PUBLIC => buffer.push_str("public"),
-            // TODO: Implement these
-            RoleSpecType::ROLESPEC_CURRENT_ROLE => todo!("ROLESPEC_CURRENT_ROLE"),
+            RoleSpecType::ROLESPEC_CURRENT_ROLE => buffer.push_str("CURRENT_ROLE"),
         }
         Ok(())
     }
@@ -5229,8 +5251,7 @@ impl SqlBuilder for RowExpr {
                 return Err(SqlError::Unsupported("COERCE_EXPLICIT_CAST".into()))
             }
             CoercionForm::COERCE_IMPLICIT_CAST => {}
-            // TODO: Implement these
-            CoercionForm::COERCE_SQL_SYNTAX => todo!("COERCE_SQL_SYNTAX"),
+            CoercionForm::COERCE_SQL_SYNTAX => {}
         }
         buffer.push('(');
         ExprList(args).build(buffer)?;

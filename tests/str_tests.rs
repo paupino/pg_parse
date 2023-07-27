@@ -451,6 +451,13 @@ fn it_correctly_converts_to_string_for_alter_obj_tests() {
         "ALTER MATERIALIZED VIEW x DEPENDS ON EXTENSION a",
         "ALTER SYSTEM SET fsync TO off",
         "ALTER SYSTEM RESET fsync",
+        "ALTER TABLE distributors ALTER COLUMN street SET STATISTICS 5",
+        "ALTER TABLE distributors ALTER COLUMN street SET COMPRESSION lz4",
+        "ALTER TABLE distributors SET ACCESS METHOD name",
+        "ALTER TABLE cities ATTACH PARTITION cities_partdef DEFAULT",
+        "ALTER TABLE measurement DETACH PARTITION measurement_y2015m12",
+        "ALTER TABLE measurement DETACH PARTITION measurement_y2015m12 CONCURRENTLY",
+        "ALTER TABLE measurement DETACH PARTITION measurement_y2015m12 FINALIZE",
     ];
     execute_tests(tests)
 }
@@ -475,6 +482,7 @@ fn it_correctly_converts_to_string_for_permission_tests() {
         "GRANT select ON \"table\" TO user1, user2",
         "GRANT select ON \"table\" TO public",
         "GRANT select ON \"table\" TO CURRENT_USER",
+        "GRANT select ON \"table\" TO CURRENT_ROLE",
         "GRANT select ON \"table\" TO SESSION_USER",
         "GRANT ALL ON \"table\" TO \"user\"",
         "GRANT select ON \"table\" TO \"user\" WITH GRANT OPTION",
