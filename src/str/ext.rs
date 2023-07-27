@@ -82,10 +82,14 @@ impl SqlBuilderWithContext for SqlValue<'_> {
     fn build_with_context(&self, buffer: &mut String, context: Context) -> Result<(), SqlError> {
         match self.0 {
             Node::Boolean { boolval: value } => {
-                BoolValue(*value).build_with_context(buffer, context)?
+                if let Some(value) = value {
+                    BoolValue(*value).build_with_context(buffer, context)?
+                }
             }
             Node::Integer { ival: value } => {
-                IntValue(*value).build_with_context(buffer, context)?
+                if let Some(value) = value {
+                    IntValue(*value).build_with_context(buffer, context)?
+                }
             }
             Node::Float { fval } => {
                 if let Some(value) = fval {
@@ -803,11 +807,11 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
         let name = must!(self.0.defname);
         let arg = must!(self.0.arg);
         if name.eq("strict") {
-            // TODO: Confirm this isn't a boolean now
-            match &**arg {
-                Node::Integer { ival: 0 } => buffer.push_str("CALLED ON NULL INPUT"),
-                Node::Integer { ival: 1 } => buffer.push_str("RETURNS NULL ON NULL INPUT"),
-                unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+            let value = bool_value!(&**arg).unwrap_or_default();
+            if value {
+                buffer.push_str("RETURNS NULL ON NULL INPUT");
+            } else {
+                buffer.push_str("CALLED ON NULL INPUT");
             }
         } else if name.eq("volatility") {
             let volatility = string_value!(**arg);
@@ -824,17 +828,27 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
             }
         } else if name.eq("security") {
             // TODO: Confirm this isn't a boolean now
-            match &**arg {
-                Node::Integer { ival: 0 } => buffer.push_str("SECURITY INVOKER"),
-                Node::Integer { ival: 1 } => buffer.push_str("SECURITY DEFINER"),
-                unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+            let value = int_value!(&**arg).unwrap_or_default();
+            match value {
+                0 => buffer.push_str("SECURITY INVOKER"),
+                1 => buffer.push_str("SECURITY DEFINER"),
+                unexpected => {
+                    return Err(SqlError::Unsupported(format!(
+                        "Unexpected security value: {unexpected}"
+                    )))
+                }
             }
         } else if name.eq("leakproof") {
             // TODO: Confirm this isn't a boolean now
-            match &**arg {
-                Node::Integer { ival: 0 } => buffer.push_str("NOT LEAKPROOF"),
-                Node::Integer { ival: 1 } => buffer.push_str("LEAKPROOF"),
-                unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+            let value = int_value!(&**arg).unwrap_or_default();
+            match value {
+                0 => buffer.push_str("NOT LEAKPROOF"),
+                1 => buffer.push_str("LEAKPROOF"),
+                unexpected => {
+                    return Err(SqlError::Unsupported(format!(
+                        "Unexpected leakproof value: {unexpected}"
+                    )))
+                }
             }
         } else if name.eq("cost") {
             buffer.push_str("COST ");
@@ -877,10 +891,14 @@ impl SqlBuilder for VarList<'_> {
             match node {
                 Node::A_Const(inner) => inner.build_with_context(buffer, Context::Identifier)?,
                 Node::ParamRef(param) => param.build(buffer)?,
-                Node::Integer { ival: value } => buffer.push_str(&format!("{}", *value)),
+                Node::Integer { ival: Some(value) } => buffer.push_str(&format!("{}", *value)),
                 Node::Float { fval: Some(value) } => buffer.push_str(value),
-                Node::Boolean { boolval: true } => buffer.push_str("TRUE"),
-                Node::Boolean { boolval: false } => buffer.push_str("FALSE"),
+                Node::Boolean {
+                    boolval: Some(true),
+                } => buffer.push_str("TRUE"),
+                Node::Boolean {
+                    boolval: Some(false),
+                } => buffer.push_str("FALSE"),
                 Node::String { sval: Some(value) } => BooleanOrString(value).build(buffer)?,
                 unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
             }
@@ -1002,7 +1020,7 @@ pub(in crate::str) struct NumericOnly<'a>(pub &'a Node);
 impl SqlBuilder for NumericOnly<'_> {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match self.0 {
-            Node::Integer { ival: value } => buffer.push_str(&format!("{}", *value)),
+            Node::Integer { ival: Some(value) } => buffer.push_str(&format!("{}", *value)),
             Node::Float { fval: Some(value) } => buffer.push_str(value),
             unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
         }
@@ -1028,7 +1046,7 @@ impl SqlBuilder for SeqOptElem<'_> {
             }
             "cycle" => {
                 let arg = must!(self.0.arg);
-                let arg = int_value!(&**arg);
+                let arg = int_value!(&**arg).unwrap_or_default();
                 match arg {
                     0 => buffer.push_str("NO CYCLE"),
                     1 => buffer.push_str("CYCLE"),
@@ -1111,7 +1129,7 @@ impl SqlBuilder for AlterIdentityColumnOptionList<'_> {
                 "generated" => {
                     buffer.push_str("SET GENERATED ");
                     let arg = must!(elem.arg);
-                    let arg = *int_value!(**arg);
+                    let arg = int_value!(**arg).unwrap_or_default();
                     let arg = char::from(arg as u8);
                     match arg {
                         constants::ATTRIBUTE_IDENTITY_ALWAYS => buffer.push_str("ALWAYS"),
@@ -1178,7 +1196,7 @@ impl SqlBuilder for AlterGenericOptions<'_> {
 pub(in crate::str) struct SignedIConst<'a>(pub &'a Node);
 impl SqlBuilder for SignedIConst<'_> {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
-        let val = int_value!(self.0);
+        let val = int_value!(self.0).unwrap_or_default();
         buffer.push_str(&val.to_string());
         Ok(())
     }
@@ -1337,7 +1355,7 @@ impl SqlBuilder for AggrArgs<'_> {
                     self.0.len()
                 )));
             }
-            let order_by_pos = *int_value!(self.0[1]) as usize;
+            let order_by_pos = int_value!(self.0[1]).unwrap_or(i64::MAX) as usize;
             for (index, item) in iter_only!(args.items, Node::FunctionParameter).enumerate() {
                 if index == order_by_pos {
                     if index > 0 {
@@ -1408,7 +1426,7 @@ impl SqlBuilder for CreatedbOptList<'_> {
                         buffer.push(' ');
                         BooleanOrString(value).build(buffer)?;
                     }
-                    Node::Integer { ival: value } => buffer.push_str(&format!(" {}", *value)),
+                    Node::Integer { ival: Some(value) } => buffer.push_str(&format!(" {}", *value)),
                     _ => {}
                 }
             } else {

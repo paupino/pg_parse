@@ -299,7 +299,12 @@ mod tests {
         assert!(nodes.values.is_some());
         let values = nodes.values.unwrap();
         assert_eq!(1, values.len());
-        assert!(matches!(values[0], Node::Boolean { boolval: false }))
+        assert!(matches!(
+            values[0],
+            Node::Boolean {
+                boolval: Some(false)
+            }
+        ))
     }
 
     #[test]
@@ -437,8 +442,8 @@ mod tests {
         let json = "{\"Integer\":{}}";
         let node: Node = serde_json::from_str(json).unwrap();
         assert!(
-            matches!(node, Node::Integer { ival: 0 }),
-            "Expected integer node to default to 0"
+            matches!(node, Node::Integer { ival: None }),
+            "Expected integer node to default to None"
         );
     }
 

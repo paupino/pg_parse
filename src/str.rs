@@ -58,7 +58,13 @@ impl fmt::Display for Node {
         let mut buffer = String::new();
         match self.build(&mut buffer) {
             Ok(_) => write!(f, "{}", buffer),
-            Err(_) => Err(fmt::Error),
+            Err(err) => {
+                #[cfg(debug_assertions)]
+                {
+                    eprintln!("Error generating SQL: {}", err);
+                }
+                Err(fmt::Error)
+            }
         }
     }
 }
@@ -309,17 +315,17 @@ impl SqlBuilder for Node {
             | Node::String { .. } => SqlValue(self).build_with_context(buffer, Context::None)?,
 
             // TODO: Implement these
-            _ => todo!(), // Node::AlterDatabaseRefreshCollStmt(_) => {}
-                          // Node::CTECycleClause(_) => {}
-                          // Node::CTESearchClause(_) => {}
-                          // Node::MergeAction(_) => {}
-                          // Node::MergeStmt(_) => {}
-                          // Node::MergeWhenClause(_) => {}
-                          // Node::PLAssignStmt(_) => {}
-                          // Node::PublicationObjSpec(_) => {}
-                          // Node::PublicationTable(_) => {}
-                          // Node::ReturnStmt(_) => {}
-                          // Node::StatsElem(_) => {}
+            _ => todo!("Node: {:?}", self), // Node::AlterDatabaseRefreshCollStmt(_) => {}
+                                            // Node::CTECycleClause(_) => {}
+                                            // Node::CTESearchClause(_) => {}
+                                            // Node::MergeAction(_) => {}
+                                            // Node::MergeStmt(_) => {}
+                                            // Node::MergeWhenClause(_) => {}
+                                            // Node::PLAssignStmt(_) => {}
+                                            // Node::PublicationObjSpec(_) => {}
+                                            // Node::PublicationTable(_) => {}
+                                            // Node::ReturnStmt(_) => {}
+                                            // Node::StatsElem(_) => {}
         }
         Ok(())
     }
@@ -337,7 +343,7 @@ mod tests {
 
     #[test]
     fn it_can_convert_a_value_node_to_string() {
-        let node = Node::Integer { ival: 5 };
+        let node = Node::Integer { ival: Some(5) };
         assert_eq!("Integer", node.name());
     }
 }

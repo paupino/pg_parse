@@ -50,6 +50,14 @@ macro_rules! iter_only {
         })
     };
 }
+macro_rules! bool_value {
+    ($expr:expr) => {
+        match &$expr {
+            Node::Boolean { boolval: value } => value,
+            unexpected => return Err(SqlError::UnexpectedNodeType(unexpected.name())),
+        }
+    };
+}
 
 macro_rules! int_value {
     ($expr:expr) => {

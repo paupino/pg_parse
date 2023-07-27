@@ -368,7 +368,13 @@ fn make_nodes(
             let field_name = field.name.as_ref().unwrap();
             let resolved_type = type_resolver.resolve(field.c_type.as_ref().unwrap());
             writeln!(out, "        #[serde(default)]")?;
-            writeln!(out, "        {field_name}: {resolved_type},")?;
+            // We force each of these as an Option so we can be explicit about when we
+            // want to handle absence of a field.
+            if resolved_type.starts_with("Option<") {
+                writeln!(out, "        {field_name}: {resolved_type},")?;
+            } else {
+                writeln!(out, "        {field_name}: Option<{resolved_type}>,")?;
+            }
         }
         writeln!(out, "    }},")?;
     }

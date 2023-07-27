@@ -520,10 +520,10 @@ impl SqlBuilderWithContext for AlterTableCmd {
             }
 
             // TODO: Implement these
-            _ => todo!(), // AlterTableType::AT_SetCompression => {}
-                          // AlterTableType::AT_SetAccessMethod => {}
-                          // AlterTableType::AT_DetachPartitionFinalize => {}
-                          // AlterTableType::AT_ReAddStatistics => {}
+            _ => todo!("AlterTableType: {:?}", self), // AlterTableType::AT_SetCompression => {}
+                                                      // AlterTableType::AT_SetAccessMethod => {}
+                                                      // AlterTableType::AT_DetachPartitionFinalize => {}
+                                                      // AlterTableType::AT_ReAddStatistics => {}
         }
 
         if self.missing_ok && !trailing_missing_ok {
@@ -1612,7 +1612,7 @@ impl SqlBuilder for CopyStmt {
                             let mut use_default_impl = false;
                             let mut value = None;
                             if let Some(arg) = &element.arg {
-                                let val = *int_value!(**arg);
+                                let val = int_value!(**arg).unwrap_or_default();
                                 if val == 1 {
                                     value = Some(val);
                                 } else {
@@ -1722,7 +1722,7 @@ impl SqlBuilder for CreateCastStmt {
             CoercionContext::COERCION_ASSIGNMENT => buffer.push_str(" AS ASSIGNMENT"),
             CoercionContext::COERCION_EXPLICIT => {}
             // TODO: Implement these
-            CoercionContext::COERCION_PLPGSQL => todo!(),
+            CoercionContext::COERCION_PLPGSQL => todo!("COERCION_PLPGSQL"),
         }
 
         Ok(())
@@ -2803,13 +2803,12 @@ impl SqlBuilder for FuncCall {
 impl SqlBuilder for FunctionParameter {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         match *self.mode {
-            FunctionParameterMode::FUNC_PARAM_IN => {} // Default
+            FunctionParameterMode::FUNC_PARAM_IN => buffer.push_str("IN"),
             FunctionParameterMode::FUNC_PARAM_OUT => buffer.push_str("OUT"),
             FunctionParameterMode::FUNC_PARAM_INOUT => buffer.push_str("INOUT"),
             FunctionParameterMode::FUNC_PARAM_VARIADIC => buffer.push_str("VARIADIC"),
             FunctionParameterMode::FUNC_PARAM_TABLE => {} // No special annotation
-            // TODO: Implement these
-            FunctionParameterMode::FUNC_PARAM_DEFAULT => todo!(),
+            FunctionParameterMode::FUNC_PARAM_DEFAULT => {}
         }
         if let Some(ref name) = self.name {
             if !buffer.ends_with(' ') && !buffer.ends_with('(') {
@@ -3915,7 +3914,7 @@ impl SqlBuilder for RoleSpec {
             RoleSpecType::ROLESPEC_SESSION_USER => buffer.push_str("SESSION_USER"),
             RoleSpecType::ROLESPEC_PUBLIC => buffer.push_str("public"),
             // TODO: Implement these
-            RoleSpecType::ROLESPEC_CURRENT_ROLE => todo!(),
+            RoleSpecType::ROLESPEC_CURRENT_ROLE => todo!("ROLESPEC_CURRENT_ROLE"),
         }
         Ok(())
     }
@@ -4496,7 +4495,7 @@ impl SqlBuilder for TypeName {
             for bound in bounds {
                 buffer.push('[');
                 match &bound {
-                    Node::Integer { ival: value } if *value > 0 => {
+                    Node::Integer { ival: Some(value) } if *value >= 0 => {
                         buffer.push_str(&(*value).to_string())
                     }
                     _ => {} // Ignore
@@ -5231,7 +5230,7 @@ impl SqlBuilder for RowExpr {
             }
             CoercionForm::COERCE_IMPLICIT_CAST => {}
             // TODO: Implement these
-            CoercionForm::COERCE_SQL_SYNTAX => todo!(),
+            CoercionForm::COERCE_SQL_SYNTAX => todo!("COERCE_SQL_SYNTAX"),
         }
         buffer.push('(');
         ExprList(args).build(buffer)?;
@@ -5385,8 +5384,11 @@ impl SqlBuilder for XmlExpr {
                 Expr(&args[0]).build(buffer)?;
                 if let Node::TypeCast(ref tc) = args[1] {
                     if let Some(ref inner) = tc.arg {
-                        if let Node::Boolean { boolval } = **inner {
-                            if boolval {
+                        if let Node::Boolean {
+                            boolval: Some(value),
+                        } = **inner
+                        {
+                            if value {
                                 buffer.push_str(" PRESERVE WHITESPACE");
                             }
                         }
