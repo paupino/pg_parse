@@ -37,17 +37,16 @@ assert_eq!(result[0].to_string(), "SELECT * FROM contacts");
 
 ## What's the difference between pg_parse and pg_query.rs?
 
-The [`pganalyze`](https://github.com/pganalyze/) organization will maintain the official implementation called [`pg_query.rs`](https://github.com/pganalyze/pg_query.rs). This
-closely resembles the name of the C library also published by the team (`libpg_query`). This implementation will use the protobuf 
+The [`pganalyze`](https://github.com/pganalyze/) organization maintains the official implementation: [`pg_query.rs`](https://github.com/pganalyze/pg_query.rs). This
+closely resembles the name of the C library also published by the team (`libpg_query`). This implementation uses the protobuf 
 interface introduced with version 13 of `libpg_query`.
 
 This library similarly consumes `libpg_query` however utilizes the older JSON interface to manage parsing. The intention of this library
 is to maintain a dependency "light" implementation with `serde` being the only required runtime dependency. While this was originally called
-`pg_query.rs` it makes sense to decouple itself from the official naming convention and go on it's own. Hence `pg_parse`.
+`pg_query.rs` it made sense to decouple itself from the official naming convention and continue independently. Hence `pg_parse`.
 
 So which one should you use? You probably want to use the official `pg_query.rs` library as that will continue to be 
-kept closely up to date with `libpg_query` updates. This library will continue to be maintained however may not be as up
-to date as the official implementation.
+kept closely up to date with `libpg_query` updates. This library will continue to be maintained however may not be as up-to-date as the official implementation.
 
 ## Credits
 
