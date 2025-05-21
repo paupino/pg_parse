@@ -1,6 +1,6 @@
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
   push:
     branches:
       - master
@@ -18,12 +18,12 @@ jobs:
           - beta
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Cache cargo registry
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -31,39 +31,31 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.backend }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          override: true
 
       - name: Build pg_parse
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
+        run: cargo build
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
 
   check_style:
     name: Check file formatting and style
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          profile: minimal
           components: clippy, rustfmt
-          override: true
 
       - name: Cache cargo registry
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -71,12 +63,7 @@ jobs:
           key: clippy-cargo-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Check file formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
+        run: cargo clippy
