@@ -8,6 +8,7 @@
               "PLpgSQL_stmt_if": {
                 "cond": {
                   "PLpgSQL_expr": {
+                    "parseMode": 2,
                     "query": "v_version IS NULL"
                   }
                 },
@@ -17,6 +18,7 @@
                     "PLpgSQL_stmt_return": {
                       "expr": {
                         "PLpgSQL_expr": {
+                          "parseMode": 2,
                           "query": "v_name"
                         }
                       },
@@ -30,6 +32,7 @@
               "PLpgSQL_stmt_return": {
                 "expr": {
                   "PLpgSQL_expr": {
+                    "parseMode": 2,
                     "query": "v_name || '/' || v_version"
                   }
                 },
@@ -45,7 +48,7 @@
           "PLpgSQL_var": {
             "datatype": {
               "PLpgSQL_type": {
-                "typname": "UNKNOWN"
+                "typname": "pg_catalog.\"varchar\""
               }
             },
             "refname": "v_name"
@@ -55,7 +58,7 @@
           "PLpgSQL_var": {
             "datatype": {
               "PLpgSQL_type": {
-                "typname": "UNKNOWN"
+                "typname": "pg_catalog.\"varchar\""
               }
             },
             "refname": "v_version"
@@ -65,7 +68,7 @@
           "PLpgSQL_var": {
             "datatype": {
               "PLpgSQL_type": {
-                "typname": "UNKNOWN"
+                "typname": "pg_catalog.\"boolean\""
               }
             },
             "refname": "found"

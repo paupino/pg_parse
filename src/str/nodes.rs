@@ -170,7 +170,7 @@ impl SqlBuilderWithContext for A_Expr {
                         return Err(SqlError::Unsupported(format!(
                             "Unsupported operator: {}",
                             unsupported
-                        )))
+                        )));
                     }
                 }
                 buffer.push('(');
@@ -205,7 +205,7 @@ impl SqlBuilderWithContext for A_Expr {
                         return Err(SqlError::Unsupported(format!(
                             "Unsupported operator: {}",
                             op
-                        )))
+                        )));
                     }
                 }
 
@@ -400,7 +400,6 @@ impl SqlBuilderWithContext for AlterTableCmd {
                     buffer.push_str("ADD COLUMN");
                 }
             }
-            AlterTableType::AT_AddColumnRecurse => unsupported!(self.subtype),
             AlterTableType::AT_AddColumnToView => unsupported!(self.subtype),
             AlterTableType::AT_ColumnDefault => {
                 buffer.push_str("ALTER COLUMN");
@@ -448,19 +447,15 @@ impl SqlBuilderWithContext for AlterTableCmd {
                     buffer.push_str("DROP COLUMN");
                 }
             }
-            AlterTableType::AT_DropColumnRecurse => unsupported!(self.subtype),
             AlterTableType::AT_AddIndex => buffer.push_str("ADD INDEX"),
             AlterTableType::AT_ReAddIndex => unsupported!(self.subtype),
             AlterTableType::AT_AddConstraint => buffer.push_str("ADD"),
-            AlterTableType::AT_AddConstraintRecurse => unsupported!(self.subtype),
             AlterTableType::AT_ReAddConstraint => unsupported!(self.subtype),
             AlterTableType::AT_ReAddDomainConstraint => unsupported!(self.subtype),
             AlterTableType::AT_AlterConstraint => buffer.push_str("ALTER"),
             AlterTableType::AT_ValidateConstraint => buffer.push_str("VALIDATE CONSTRAINT"),
-            AlterTableType::AT_ValidateConstraintRecurse => unsupported!(self.subtype),
             AlterTableType::AT_AddIndexConstraint => unsupported!(self.subtype),
             AlterTableType::AT_DropConstraint => buffer.push_str("DROP CONSTRAINT"),
-            AlterTableType::AT_DropConstraintRecurse => unsupported!(self.subtype),
             AlterTableType::AT_ReAddComment => unsupported!(self.subtype),
             AlterTableType::AT_AlterColumnType => {
                 if context == Context::AlterType {
@@ -531,6 +526,11 @@ impl SqlBuilderWithContext for AlterTableCmd {
             }
 
             AlterTableType::AT_ReAddStatistics => unsupported!(self.subtype),
+
+            AlterTableType::AT_SetExpression => {
+                buffer.push_str("ALTER COLUMN");
+                options = Some("SET EXPRESSION AS");
+            }
         }
 
         if self.missing_ok && !trailing_missing_ok {
@@ -648,6 +648,13 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 let ident = string_value!(**def);
                 buffer.push(' ');
                 buffer.push_str(quote_identifier(ident.as_str()).as_str());
+            }
+            AlterTableType::AT_SetExpression => {
+                let def = must!(self.def);
+                let expr = Expr(&*def);
+                buffer.push_str(" (");
+                expr.build(buffer)?;
+                buffer.push(')');
             }
             _ => {
                 if self.def.is_some() {
@@ -1089,9 +1096,7 @@ impl SqlBuilder for ColumnRef {
         if let Some(node) = iter.next() {
             match node {
                 Node::A_Star(star) => star.build(buffer)?,
-                Node::String {
-                    sval: Some(ref value),
-                } => buffer.push_str(&quote_identifier(value)),
+                Node::String { sval: Some(value) } => buffer.push_str(&quote_identifier(value)),
                 _ => {}
             }
         } else {
@@ -1356,7 +1361,7 @@ impl SqlBuilder for Constraint {
                         return Err(SqlError::Unsupported(format!(
                             "Unexpected attribute identity: {}",
                             unexpected
-                        )))
+                        )));
                     }
                 }
                 buffer.push_str("AS IDENTITY");
@@ -1472,7 +1477,7 @@ impl SqlBuilder for Constraint {
             constants::FKCONSTR_MATCH_SIMPLE => {} // Default
             constants::FKCONSTR_MATCH_FULL => buffer.push_str(" MATCH FULL"),
             constants::FKCONSTR_MATCH_PARTIAL => {
-                return Err(SqlError::Unsupported("Not implemented in Postgres".into()))
+                return Err(SqlError::Unsupported("Not implemented in Postgres".into()));
             }
             _ => {} // Not specified
         }
@@ -1542,9 +1547,9 @@ impl SqlBuilder for CopyStmt {
             if let Some(ref arg) = element.arg {
                 inner_buffer.push(' ');
                 match &**arg {
-                    Node::String {
-                        sval: Some(ref value),
-                    } => BooleanOrString(value).build(inner_buffer)?,
+                    Node::String { sval: Some(value) } => {
+                        BooleanOrString(value).build(inner_buffer)?
+                    }
                     Node::Integer { .. } | Node::Float { .. } => {
                         NumericOnly(arg).build(inner_buffer)?
                     }
@@ -1624,7 +1629,7 @@ impl SqlBuilder for CopyStmt {
                                     return Err(SqlError::Unsupported(format!(
                                         "Format type: {}",
                                         unexpected
-                                    )))
+                                    )));
                                 }
                             }
                         }
@@ -1685,7 +1690,7 @@ impl SqlBuilder for CopyStmt {
                                     buffer.push(')');
                                 }
                                 unexpected => {
-                                    return Err(SqlError::UnexpectedNodeType(unexpected.name()))
+                                    return Err(SqlError::UnexpectedNodeType(unexpected.name()));
                                 }
                             }
                         }
@@ -1824,7 +1829,7 @@ impl SqlBuilder for CreateExtensionStmt {
                         return Err(SqlError::Unsupported(format!(
                             "Extension option: {}",
                             unexpected
-                        )))
+                        )));
                     }
                 }
             }
@@ -2033,7 +2038,7 @@ impl SqlBuilderWithContext for CreateStmt {
         // Partition
         if self.partbound.is_some() {
             if let Some(ref inh) = self.inh_relations {
-                if let Some(Node::RangeVar(ref range)) = inh.iter().next() {
+                if let Some(Node::RangeVar(range)) = inh.iter().next() {
                     buffer.push_str(" PARTITION OF ");
                     range.build_with_context(buffer, Context::None)?;
                 }
@@ -2718,14 +2723,12 @@ impl SqlBuilder for ExplainStmt {
                                 buffer.push(' ');
                                 NumericOnly(arg).build(buffer)?;
                             }
-                            Node::String {
-                                sval: Some(ref value),
-                            } => {
+                            Node::String { sval: Some(value) } => {
                                 buffer.push(' ');
                                 BooleanOrString(value).build(buffer)?;
                             }
                             unexpected => {
-                                return Err(SqlError::UnexpectedNodeType(unexpected.name()))
+                                return Err(SqlError::UnexpectedNodeType(unexpected.name()));
                             }
                         }
                     }
@@ -2874,8 +2877,20 @@ impl SqlBuilder for GrantRoleStmt {
         }
 
         RoleList(grantee_roles).build(buffer)?;
-        if self.admin_opt {
-            buffer.push_str(" WITH ADMIN OPTION");
+        if let Some(ref opt) = self.opt {
+            for opt in iter_only!(opt, Node::DefElem) {
+                let opt_name = must!(opt.defname);
+                buffer.push_str(" WITH ");
+                buffer.push_str(opt_name.to_uppercase().as_str());
+                buffer.push(' ');
+                if let Some(ref arg) = opt.arg {
+                    arg.build(buffer)?;
+                }
+            }
+        }
+        if let Some(ref grantor) = self.grantor {
+            buffer.push_str(" GRANTED BY ");
+            grantor.build(buffer)?;
         }
         Ok(())
     }
@@ -3306,7 +3321,7 @@ impl SqlBuilder for LockStmt {
                     return Err(SqlError::Unsupported(format!(
                         "Unknown lock type: {}",
                         unsupported
-                    )))
+                    )));
                 }
             }
             buffer.push_str(" MODE");
@@ -3423,7 +3438,7 @@ impl SqlBuilder for PartitionBoundSpec {
                 return Err(SqlError::Unsupported(format!(
                     "Partition Strategy: {}",
                     unexpected
-                )))
+                )));
             }
         }
 
@@ -3470,12 +3485,21 @@ impl SqlBuilder for PartitionElem {
     }
 }
 
+impl SqlBuilder for PartitionStrategy {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
+        match *self {
+            PartitionStrategy::PARTITION_STRATEGY_LIST => buffer.push_str("LIST"),
+            PartitionStrategy::PARTITION_STRATEGY_RANGE => buffer.push_str("RANGE"),
+            PartitionStrategy::PARTITION_STRATEGY_HASH => buffer.push_str("HASH"),
+        }
+        Ok(())
+    }
+}
+
 impl SqlBuilder for PartitionSpec {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("PARTITION BY ");
-        if let Some(ref strategy) = self.strategy {
-            buffer.push_str(strategy);
-        }
+        self.strategy.build(buffer)?;
         buffer.push('(');
         if let Some(ref params) = self.part_params {
             for (index, elem) in iter_only!(params, Node::PartitionElem).enumerate() {
@@ -4470,7 +4494,7 @@ impl SqlBuilder for TypeName {
                             return Err(SqlError::Unsupported(format!(
                                 "Unexpected interval: {}",
                                 unexpected
-                            )))
+                            )));
                         }
                     }
 
@@ -4597,11 +4621,11 @@ impl SqlBuilder for VacuumStmt {
                             Node::Integer { .. } | Node::Float { .. } => {
                                 NumericOnly(arg).build(buffer)?
                             }
-                            Node::String {
-                                sval: Some(ref value),
-                            } => BooleanOrString(value).build(buffer)?,
+                            Node::String { sval: Some(value) } => {
+                                BooleanOrString(value).build(buffer)?
+                            }
                             unexpected => {
-                                return Err(SqlError::UnexpectedNodeType(unexpected.name()))
+                                return Err(SqlError::UnexpectedNodeType(unexpected.name()));
                             }
                         }
                     }
@@ -4703,7 +4727,7 @@ impl SqlBuilder for VariableSetStmt {
                         return Err(SqlError::Unsupported(format!(
                             "Unsupported set type: {}",
                             unsupported
-                        )))
+                        )));
                     }
                 }
             }
@@ -5141,6 +5165,7 @@ impl SqlBuilder for JoinExpr {
             JoinType::JOIN_ANTI => {}
             JoinType::JOIN_UNIQUE_OUTER => {}
             JoinType::JOIN_UNIQUE_INNER => {}
+            JoinType::JOIN_RIGHT_ANTI => {}
         }
         buffer.push_str("JOIN ");
 
@@ -5248,7 +5273,7 @@ impl SqlBuilder for RowExpr {
         match *self.row_format {
             CoercionForm::COERCE_EXPLICIT_CALL => buffer.push_str("ROW"),
             CoercionForm::COERCE_EXPLICIT_CAST => {
-                return Err(SqlError::Unsupported("COERCE_EXPLICIT_CAST".into()))
+                return Err(SqlError::Unsupported("COERCE_EXPLICIT_CAST".into()));
             }
             CoercionForm::COERCE_IMPLICIT_CAST => {}
             CoercionForm::COERCE_SQL_SYNTAX => {}
@@ -5335,7 +5360,7 @@ impl SqlBuilder for SubLink {
                 buffer.push(')');
             }
             SubLinkType::ROWCOMPARE_SUBLINK => {
-                return Err(SqlError::Unsupported("ROWCOMPARE_SUBLINK".into()))
+                return Err(SqlError::Unsupported("ROWCOMPARE_SUBLINK".into()));
             }
             SubLinkType::EXPR_SUBLINK => {
                 buffer.push('(');
@@ -5343,7 +5368,7 @@ impl SqlBuilder for SubLink {
                 buffer.push(')');
             }
             SubLinkType::MULTIEXPR_SUBLINK => {
-                return Err(SqlError::Unsupported("MULTIEXPR_SUBLINK".into()))
+                return Err(SqlError::Unsupported("MULTIEXPR_SUBLINK".into()));
             }
             SubLinkType::ARRAY_SUBLINK => {
                 buffer.push_str("ARRAY(");

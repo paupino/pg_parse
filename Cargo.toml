@@ -1,9 +1,9 @@
 [package]
 name = "pg_parse"
 description = "PostgreSQL parser that uses the actual PostgreSQL server source to parse SQL queries and return the internal PostgreSQL parse tree."
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Paul Mason <paul@form1.co.nz>"]
-edition = "2021"
+edition = "2024"
 documentation = "https://docs.rs/pg_parse/"
 build = "build.rs"
 license = "MIT"
@@ -11,8 +11,8 @@ readme = "./README.md"
 repository = "https://github.com/paupino/pg_parse"
 
 [features]
-default = ["str"]
-str = []
+default = []
+str = [] # Enable converting nodes back into strings
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

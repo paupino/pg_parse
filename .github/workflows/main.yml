@@ -10,7 +10,7 @@ name: Continuous integration
 
 jobs:
   ci:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         rust:
@@ -36,14 +36,14 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: Build pg_parse
-        run: cargo build
+        run: cargo build --all-features
 
       - name: Run tests
-        run: cargo test
+        run: cargo test --all-features
 
   check_style:
     name: Check file formatting and style
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
