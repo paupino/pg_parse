@@ -158,7 +158,9 @@ fn generate_ast(build_dir: &Path, out_dir: &Path) -> std::io::Result<()> {
     // Read in all "Node" types as this helps generating struct vs node
     let node_types = File::open(srcdata_dir.join("nodetypes.json"))?;
     let node_types = BufReader::new(node_types);
-    let node_types: Vec<String> = serde_json::from_reader(node_types)?;
+    let mut node_types: Vec<String> = serde_json::from_reader(node_types)?;
+    node_types.push("JsonTablePlan".into());
+    node_types.push("RelFileNumber".into());
     for ty in node_types.iter() {
         type_resolver.add_node(ty);
     }
@@ -233,8 +235,10 @@ fn make_aliases(
             "char" => "char",
             "double" => "f64",
             "int16" => "i16",
+            "int" => "i32",
             "signed int" => "i32",
             "uint32" => "u32",
+            "uint64" => "u64",
             "unsigned int" => "u32",
             "uintptr_t" => "usize",
 

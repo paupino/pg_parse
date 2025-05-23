@@ -8,6 +8,7 @@ use serde::Deserializer;
 
 // Type aliases
 pub type bits32 = u32;
+pub type RelFileNumber = Oid;
 
 // Generated types
 include!(concat!(env!("OUT_DIR"), "/ast.rs"));
