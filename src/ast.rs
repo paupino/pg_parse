@@ -8,6 +8,7 @@ use serde::Deserializer;
 
 // Type aliases
 pub type bits32 = u32;
+pub type RelFileNumber = Oid;
 
 // Generated types
 include!(concat!(env!("OUT_DIR"), "/ast.rs"));
@@ -147,13 +148,13 @@ pub(crate) mod constants {
         pub const RowShareLock: i32 = 2; /* SELECT FOR UPDATE/FOR SHARE */
         pub const RowExclusiveLock: i32 = 3; /* INSERT, UPDATE, DELETE */
         pub const ShareUpdateExclusiveLock: i32 = 4; /* VACUUM (non-FULL),ANALYZE, CREATE INDEX
-                                                      * CONCURRENTLY */
+         * CONCURRENTLY */
         pub const ShareLock: i32 = 5; /* CREATE INDEX (WITHOUT CONCURRENTLY) */
         pub const ShareRowExclusiveLock: i32 = 6; /* like EXCLUSIVE MODE, but allows ROW
-                                                   * SHARE */
+         * SHARE */
         pub const ExclusiveLock: i32 = 7; /* blocks ROW SHARE/SELECT...FOR UPDATE */
         pub const AccessExclusiveLock: i32 = 8; /* ALTER TABLE, DROP TABLE, VACUUM FULL,
-                                                 * and unqualified LOCK TABLE */
+         * and unqualified LOCK TABLE */
     }
 
     pub mod trigger {

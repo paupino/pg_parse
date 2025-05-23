@@ -471,6 +471,7 @@ mod tests {
             "ALTER TABLE measurement DETACH PARTITION measurement_y2015m12",
             "ALTER TABLE measurement DETACH PARTITION measurement_y2015m12 CONCURRENTLY",
             "ALTER TABLE measurement DETACH PARTITION measurement_y2015m12 FINALIZE",
+            "ALTER TABLE measurement ALTER COLUMN street_city SET EXPRESSION AS (concat(street, ' ', city))",
         ];
         execute_tests(tests)
     }
@@ -519,7 +520,11 @@ mod tests {
             "GRANT usage ON TYPE type TO \"user\"",
             "GRANT role TO \"user\"",
             "GRANT role1, role2 TO \"user\"",
-            "GRANT role TO \"user\" WITH ADMIN OPTION",
+            // "GRANT role TO \"user\" WITH ADMIN OPTION", // Same as ADMIN TRUE
+            "GRANT role TO \"user\" WITH ADMIN TRUE",
+            "GRANT role TO \"user\" WITH ADMIN FALSE",
+            "GRANT role TO \"user\" WITH INHERIT FALSE",
+            "GRANT role TO \"user\" WITH SET FALSE GRANTED BY user2",
             "DROP ROLE jonathan",
             "REVOKE ALL ON kinds FROM manuel",
             "REVOKE admins FROM joe",

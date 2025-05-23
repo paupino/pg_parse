@@ -1,8 +1,8 @@
 use std::fmt;
 
 use crate::ast::ConstValue;
-use serde::de::{Deserializer, Error, SeqAccess, Visitor};
 use serde::Deserialize;
+use serde::de::{Deserializer, Error, SeqAccess, Visitor};
 
 pub(crate) fn deserialize_node_array<'de, D>(
     deserializer: D,

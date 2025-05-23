@@ -1,5 +1,5 @@
 use crate::ast::{
-    constants, ConstValue, DefElem, DefElemAction, DropBehavior, Node, ObjectWithArgs, ResTarget,
+    ConstValue, DefElem, DefElemAction, DropBehavior, Node, ObjectWithArgs, ResTarget, constants,
 };
 use crate::str::helpers::{
     is_keyword, is_operator, join_strings, node_vec_to_string_vec, non_reserved_word_or_sconst,
@@ -68,7 +68,7 @@ impl<'a> SqlBuilderWithContext for BitStringValue<'a> {
                     return Err(SqlError::Unsupported(format!(
                         "Unknown bitstring modifier: {}",
                         unknown
-                    )))
+                    )));
                 }
             }
         } else {
@@ -183,7 +183,7 @@ impl SqlBuilder for DefArg<'_> {
                 _ => {
                     return Err(SqlError::Unsupported(
                         "Unexpected number of elements".into(),
-                    ))
+                    ));
                 }
             },
             Node::Float { .. } | Node::Integer { .. } => {
@@ -823,7 +823,7 @@ impl SqlBuilder for CommonFuncOptItem<'_> {
                     return Err(SqlError::Unsupported(format!(
                         "Unsupported volatility: {}",
                         unexpected
-                    )))
+                    )));
                 }
             }
         } else if name.eq("security") {
@@ -956,7 +956,7 @@ impl SqlBuilder for TransactionModeList<'_> {
                             return Err(SqlError::Unsupported(format!(
                                 "Unsupported isolation mode: {}",
                                 unsupported
-                            )))
+                            )));
                         }
                     }
                 }
@@ -973,7 +973,7 @@ impl SqlBuilder for TransactionModeList<'_> {
                             return Err(SqlError::Unsupported(format!(
                                 "Unexpected transaction_read_only value: {}",
                                 unexpected
-                            )))
+                            )));
                         }
                     };
                 }
@@ -990,7 +990,7 @@ impl SqlBuilder for TransactionModeList<'_> {
                             return Err(SqlError::Unsupported(format!(
                                 "Unexpected transaction_deferrable value: {}",
                                 unexpected
-                            )))
+                            )));
                         }
                     };
                 }
@@ -998,7 +998,7 @@ impl SqlBuilder for TransactionModeList<'_> {
                     return Err(SqlError::Unsupported(format!(
                         "Unsupported transaction mode: {}",
                         unsupported
-                    )))
+                    )));
                 }
             }
         }
@@ -1093,7 +1093,7 @@ impl SqlBuilder for SeqOptElem<'_> {
                 return Err(SqlError::Unsupported(format!(
                     "Option element: {}",
                     unsupported
-                )))
+                )));
             }
         }
         Ok(())
@@ -1410,9 +1410,7 @@ impl SqlBuilder for CreatedbOptList<'_> {
 
             if let Some(ref arg) = elem.arg {
                 match &**arg {
-                    Node::String {
-                        sval: Some(ref value),
-                    } => {
+                    Node::String { sval: Some(value) } => {
                         buffer.push(' ');
                         BooleanOrString(value).build(buffer)?;
                     }

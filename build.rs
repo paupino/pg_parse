@@ -158,7 +158,8 @@ fn generate_ast(build_dir: &Path, out_dir: &Path) -> std::io::Result<()> {
     // Read in all "Node" types as this helps generating struct vs node
     let node_types = File::open(srcdata_dir.join("nodetypes.json"))?;
     let node_types = BufReader::new(node_types);
-    let node_types: Vec<String> = serde_json::from_reader(node_types)?;
+    let mut node_types: Vec<String> = serde_json::from_reader(node_types)?;
+    node_types.push("JsonTablePlan".into());
     for ty in node_types.iter() {
         type_resolver.add_node(ty);
     }
@@ -233,8 +234,10 @@ fn make_aliases(
             "char" => "char",
             "double" => "f64",
             "int16" => "i16",
+            "int" => "i32",
             "signed int" => "i32",
             "uint32" => "u32",
+            "uint64" => "u64",
             "unsigned int" => "u32",
             "uintptr_t" => "usize",
 
@@ -516,6 +519,7 @@ impl TypeResolver {
         primitive.insert("Node*", "Option<Box<Node>>");
         primitive.insert("Expr*", "Option<Box<Node>>");
         primitive.insert("String*", "Option<String>");
+        primitive.insert("RelFileNumber", "RelFileNumber");
 
         // Bitmapset is defined in bitmapset.h and is roughly equivalent to a vector of u32's.
         primitive.insert("Bitmapset*", "Option<Vec<u32>>");
@@ -572,11 +576,11 @@ impl TypeResolver {
         }
         if let Some(ty) = c_type.strip_suffix('*') {
             if let Some(primitive) = self.aliases.get(c_type) {
-                if *primitive {
-                    return format!("Option<{}>", ty);
+                return if *primitive {
+                    format!("Option<{}>", ty)
                 } else {
-                    return format!("Option<Box<{}>>", ty);
-                }
+                    format!("Option<Box<{}>>", ty)
+                };
             }
 
             if self.nodes.contains(ty) || self.types.contains(ty) {
@@ -584,11 +588,11 @@ impl TypeResolver {
             }
         } else {
             if let Some(primitive) = self.aliases.get(c_type) {
-                if *primitive {
-                    return c_type.to_string();
+                return if *primitive {
+                    c_type.to_string()
                 } else {
-                    return format!("Box<{}>", c_type);
-                }
+                    format!("Box<{}>", c_type)
+                };
             }
 
             if self.nodes.contains(c_type) || self.types.contains(c_type) {
