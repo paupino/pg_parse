@@ -43,7 +43,7 @@ jobs:
 
   check_style:
     name: Check file formatting and style
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
