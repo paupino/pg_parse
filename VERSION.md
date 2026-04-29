@@ -1,3 +1,11 @@
+# Version 0.13
+
+Modified:
+
+* Updated `libpg_query` to [17-6.2.2](https://github.com/pganalyze/libpg_query/tree/17-6.2.2). This bumps the embedded
+  Postgres version from 17.4 to 17.7. No AST changes are introduced.
+* `build.rs` updated so that cross-compiling to alternative targets works.
+
 # Version 0.12
 
 **This release upgrades `libpg_query` so contains breaking changes.**
