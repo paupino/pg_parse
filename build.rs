@@ -31,6 +31,32 @@ fn main() {
         if env::var("PROFILE").unwrap() == "debug" {
             make.arg("DEBUG=1");
         }
+        let target = env::var("TARGET").unwrap();
+        let host = env::var("HOST").unwrap();
+        if target != host {
+            let cc = pick_tool("CC", &target).unwrap_or_else(|| {
+                panic!(
+                    "cross-compiling to {target} but no C compiler is configured. \
+                     Set CC_{underscored} (or CC_{target}, TARGET_CC, CC) to a cross-compiler. \
+                     `cargo zigbuild` sets these for you automatically.",
+                    underscored = target.replace('-', "_"),
+                )
+            });
+            let ar = pick_tool("AR", &target).unwrap_or_else(|| {
+                panic!(
+                    "cross-compiling to {target} but no archiver is configured. \
+                     Set AR_{underscored} (or AR_{target}, TARGET_AR, AR) to a cross-archiver.",
+                    underscored = target.replace('-', "_"),
+                )
+            });
+            make.arg(format!("CC={}", cc.display()));
+            // Makefile does `AR := $(AR) rs`; command-line AR= overrides it,
+            // so the `rs` modifier must be baked in here.
+            make.arg(format!("AR={} rs", ar.display()));
+            // Skip examples/tests — those run the freshly built binaries,
+            // which would fail on the host when cross-compiling.
+            make.arg("build");
+        }
         let status = make
             .stdin(Stdio::null())
             .stdout(Stdio::inherit())
@@ -52,6 +78,23 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", build_dir.display());
     println!("cargo:rustc-link-lib=static=pg_query");
+}
+
+fn pick_tool(prefix: &str, target: &str) -> Option<PathBuf> {
+    let underscored = target.replace('-', "_");
+    for var in [
+        format!("{prefix}_{underscored}"),
+        format!("{prefix}_{target}"),
+        format!("TARGET_{prefix}"),
+        prefix.to_string(),
+    ] {
+        if let Ok(val) = env::var(&var) {
+            if !val.is_empty() {
+                return Some(PathBuf::from(val));
+            }
+        }
+    }
+    None
 }
 
 fn copy_dir<U: AsRef<Path>, V: AsRef<Path>>(from: U, to: V) -> std::io::Result<bool> {
