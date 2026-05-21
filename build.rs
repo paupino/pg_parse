@@ -88,10 +88,10 @@ fn pick_tool(prefix: &str, target: &str) -> Option<PathBuf> {
         format!("TARGET_{prefix}"),
         prefix.to_string(),
     ] {
-        if let Ok(val) = env::var(&var) {
-            if !val.is_empty() {
-                return Some(PathBuf::from(val));
-            }
+        if let Ok(val) = env::var(&var)
+            && !val.is_empty()
+        {
+            return Some(PathBuf::from(val));
         }
     }
     None
@@ -126,20 +126,15 @@ fn copy_dir<U: AsRef<Path>, V: AsRef<Path>>(from: U, to: V) -> std::io::Result<b
                 stack.push(path);
             } else if let Some(filename) = path.file_name() {
                 let dest_path = dest.join(filename);
-                if dest_path.exists() {
-                    if let Ok(source) = path.metadata() {
-                        if let Ok(dest) = dest_path.metadata() {
-                            if source.len() == dest.len() {
-                                if let Ok(smtime) = source.modified() {
-                                    if let Ok(dmtime) = dest.modified() {
-                                        if smtime == dmtime {
-                                            continue;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                if dest_path.exists()
+                    && let Ok(source) = path.metadata()
+                    && let Ok(dest) = dest_path.metadata()
+                    && source.len() == dest.len()
+                    && let Ok(smtime) = source.modified()
+                    && let Ok(dmtime) = dest.modified()
+                    && smtime == dmtime
+                {
+                    continue;
                 }
                 fs::copy(&path, &dest_path)?;
                 changed = true;
@@ -305,11 +300,12 @@ fn make_enums(
     out: &mut BufWriter<File>,
     enum_defs: &HashMap<String, HashMap<String, Enum>>,
 ) -> std::io::Result<()> {
-    const SECTIONS: [&str; 4] = [
+    const SECTIONS: [&str; 5] = [
         "nodes/parsenodes",
         "nodes/primnodes",
         "nodes/lockoptions",
         "nodes/nodes",
+        "access/cmptype",
     ];
     for section in &SECTIONS {
         let map = &enum_defs[*section];
