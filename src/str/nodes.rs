@@ -367,12 +367,12 @@ impl SqlBuilder for AccessPriv {
             buffer.push_str("ALL");
         }
 
-        if let Some(ref cols) = self.cols {
-            if !cols.is_empty() {
-                buffer.push_str(" (");
-                ColumnList(cols).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref cols) = self.cols
+            && !cols.is_empty()
+        {
+            buffer.push_str(" (");
+            ColumnList(cols).build(buffer)?;
+            buffer.push(')');
         }
         Ok(())
     }
@@ -423,7 +423,6 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 options = Some("DROP EXPRESSION");
                 trailing_missing_ok = true;
             }
-            AlterTableType::AT_CheckNotNull => unsupported!(self.subtype),
             AlterTableType::AT_SetStatistics => {
                 buffer.push_str("ALTER COLUMN");
                 options = Some("SET STATISTICS");
@@ -605,13 +604,17 @@ impl SqlBuilderWithContext for AlterTableCmd {
                 buffer.push(' ');
                 ColId(col_id).build(buffer)?;
             }
-            AlterTableType::AT_AddIdentity
-            | AlterTableType::AT_AddConstraint
-            | AlterTableType::AT_AlterConstraint => {
+            AlterTableType::AT_AddIdentity | AlterTableType::AT_AddConstraint => {
                 let def = must!(self.def);
                 let constraint = node!(**def, Node::Constraint);
                 buffer.push(' ');
                 constraint.build(buffer)?;
+            }
+            AlterTableType::AT_AlterConstraint => {
+                let def = must!(self.def);
+                let alter = node!(**def, Node::ATAlterConstraint);
+                buffer.push(' ');
+                alter.build(buffer)?;
             }
             AlterTableType::AT_SetIdentity => {
                 let def = must!(self.def);
@@ -651,7 +654,7 @@ impl SqlBuilderWithContext for AlterTableCmd {
             }
             AlterTableType::AT_SetExpression => {
                 let def = must!(self.def);
-                let expr = Expr(&*def);
+                let expr = Expr(def);
                 buffer.push_str(" (");
                 expr.build(buffer)?;
                 buffer.push(')');
@@ -1287,12 +1290,12 @@ impl SqlBuilder for CommonTableExpr {
         let name = must!(self.ctename);
         ColId(name).build(buffer)?;
 
-        if let Some(ref alias_column_names) = self.aliascolnames {
-            if !alias_column_names.is_empty() {
-                buffer.push('(');
-                NameList(alias_column_names).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref alias_column_names) = self.aliascolnames
+            && !alias_column_names.is_empty()
+        {
+            buffer.push('(');
+            NameList(alias_column_names).build(buffer)?;
+            buffer.push(')');
         }
 
         buffer.push_str(" AS ");
@@ -1381,7 +1384,17 @@ impl SqlBuilder for Constraint {
                 if let Some(ref raw) = self.raw_expr {
                     Expr(raw).build(buffer)?;
                 }
-                buffer.push_str(") STORED");
+                buffer.push(')');
+                match self.generated_kind {
+                    constants::ATTRIBUTE_GENERATED_STORED => buffer.push_str(" STORED"),
+                    constants::ATTRIBUTE_GENERATED_VIRTUAL => buffer.push_str(" VIRTUAL"),
+                    unexpected => {
+                        return Err(SqlError::Unsupported(format!(
+                            "Unexpected generated kind: {}",
+                            unexpected
+                        )));
+                    }
+                }
             }
             ConstrType::CONSTR_CHECK => {
                 buffer.push_str("CHECK (");
@@ -1394,12 +1407,12 @@ impl SqlBuilder for Constraint {
             ConstrType::CONSTR_UNIQUE => buffer.push_str("UNIQUE"),
             ConstrType::CONSTR_EXCLUSION => {
                 buffer.push_str("EXCLUDE ");
-                if let Some(ref method) = self.access_method {
-                    if method.ne(constants::DEFAULT_INDEX_TYPE) {
-                        buffer.push_str("USING ");
-                        buffer.push_str(&quote_identifier(method));
-                        buffer.push(' ');
-                    }
+                if let Some(ref method) = self.access_method
+                    && method.ne(constants::DEFAULT_INDEX_TYPE)
+                {
+                    buffer.push_str("USING ");
+                    buffer.push_str(&quote_identifier(method));
+                    buffer.push(' ');
                 }
                 buffer.push('(');
                 if let Some(ref exclusions) = self.exclusions {
@@ -1429,46 +1442,48 @@ impl SqlBuilder for Constraint {
                 }
             }
             ConstrType::CONSTR_FOREIGN => {
-                if let Some(ref attrs) = self.fk_attrs {
-                    if !attrs.is_empty() {
-                        buffer.push_str("FOREIGN KEY");
-                    }
+                if let Some(ref attrs) = self.fk_attrs
+                    && !attrs.is_empty()
+                {
+                    buffer.push_str("FOREIGN KEY");
                 }
             }
             ConstrType::CONSTR_ATTR_DEFERRABLE => buffer.push_str("DEFERRABLE"),
             ConstrType::CONSTR_ATTR_NOT_DEFERRABLE => buffer.push_str("NOT DEFERRABLE"),
             ConstrType::CONSTR_ATTR_DEFERRED => buffer.push_str("INITIALLY DEFERRED"),
             ConstrType::CONSTR_ATTR_IMMEDIATE => buffer.push_str("INITIALLY IMMEDIATE"),
+            ConstrType::CONSTR_ATTR_ENFORCED => buffer.push_str("ENFORCED"),
+            ConstrType::CONSTR_ATTR_NOT_ENFORCED => buffer.push_str("NOT ENFORCED"),
         }
 
         // Key columns
-        if let Some(ref keys) = self.keys {
-            if !keys.is_empty() {
-                buffer.push_str(" (");
-                ColumnList(keys).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref keys) = self.keys
+            && !keys.is_empty()
+        {
+            buffer.push_str(" (");
+            ColumnList(keys).build(buffer)?;
+            buffer.push(')');
         }
 
         // FK Attribute columns
-        if let Some(ref attrs) = self.fk_attrs {
-            if !attrs.is_empty() {
-                buffer.push_str(" (");
-                ColumnList(attrs).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref attrs) = self.fk_attrs
+            && !attrs.is_empty()
+        {
+            buffer.push_str(" (");
+            ColumnList(attrs).build(buffer)?;
+            buffer.push(')');
         }
 
         // Primary key table
         if let Some(ref table) = self.pktable {
             buffer.push_str(" REFERENCES ");
             (**table).build_with_context(buffer, Context::None)?;
-            if let Some(ref attrs) = self.pk_attrs {
-                if !attrs.is_empty() {
-                    buffer.push_str(" (");
-                    ColumnList(attrs).build(buffer)?;
-                    buffer.push(')');
-                }
+            if let Some(ref attrs) = self.pk_attrs
+                && !attrs.is_empty()
+            {
+                buffer.push_str(" (");
+                ColumnList(attrs).build(buffer)?;
+                buffer.push(')');
             }
         }
 
@@ -1503,12 +1518,12 @@ impl SqlBuilder for Constraint {
         }
 
         // Includes
-        if let Some(ref includes) = self.including {
-            if !includes.is_empty() {
-                buffer.push_str(" INCLUDE (");
-                ColumnList(includes).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref includes) = self.including
+            && !includes.is_empty()
+        {
+            buffer.push_str(" INCLUDE (");
+            ColumnList(includes).build(buffer)?;
+            buffer.push(')');
         }
 
         // Index options
@@ -1532,6 +1547,68 @@ impl SqlBuilder for Constraint {
         if self.skip_validation {
             buffer.push_str(" NOT VALID");
         }
+        Ok(())
+    }
+}
+
+impl SqlBuilder for ATAlterConstraint {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
+        let name = must!(self.conname);
+        buffer.push_str("CONSTRAINT ");
+        buffer.push_str(&quote_identifier(name));
+        if self.alter_enforceability {
+            if self.is_enforced {
+                buffer.push_str(" ENFORCED");
+            } else {
+                buffer.push_str(" NOT ENFORCED");
+            }
+        }
+        if self.alter_deferrability {
+            if self.deferrable {
+                buffer.push_str(" DEFERRABLE");
+                if self.initdeferred {
+                    buffer.push_str(" INITIALLY DEFERRED");
+                }
+            } else {
+                buffer.push_str(" NOT DEFERRABLE");
+            }
+        }
+        if self.alter_inheritability {
+            if self.noinherit {
+                buffer.push_str(" NO INHERIT");
+            } else {
+                buffer.push_str(" INHERIT");
+            }
+        }
+        Ok(())
+    }
+}
+
+impl SqlBuilder for ReturningClause {
+    fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
+        let exprs = match self.exprs {
+            Some(ref exprs) if !exprs.is_empty() => exprs,
+            _ => return Ok(()),
+        };
+        buffer.push_str(" RETURNING ");
+        if let Some(ref options) = self.options
+            && !options.is_empty()
+        {
+            buffer.push_str("WITH (");
+            for (index, option) in iter_only!(options, Node::ReturningOption).enumerate() {
+                if index > 0 {
+                    buffer.push_str(", ");
+                }
+                match *option.option {
+                    ReturningOptionKind::RETURNING_OPTION_OLD => buffer.push_str("OLD AS "),
+                    ReturningOptionKind::RETURNING_OPTION_NEW => buffer.push_str("NEW AS "),
+                }
+                let value = must!(option.value);
+                buffer.push_str(&quote_identifier(value));
+            }
+            buffer.push_str(") ");
+        }
+        TargetList(exprs).build(buffer)?;
         Ok(())
     }
 }
@@ -1574,12 +1651,12 @@ impl SqlBuilder for CopyStmt {
         if let Some(ref relation) = self.relation {
             buffer.push(' ');
             (**relation).build_with_context(buffer, Context::None)?;
-            if let Some(ref attlist) = self.attlist {
-                if !attlist.is_empty() {
-                    buffer.push('(');
-                    ColumnList(attlist).build(buffer)?;
-                    buffer.push(')');
-                }
+            if let Some(ref attlist) = self.attlist
+                && !attlist.is_empty()
+            {
+                buffer.push('(');
+                ColumnList(attlist).build(buffer)?;
+                buffer.push(')');
             }
         }
 
@@ -1608,111 +1685,111 @@ impl SqlBuilder for CopyStmt {
             buffer.push_str(" STDOUT");
         }
 
-        if let Some(ref options) = self.options {
-            if !options.is_empty() {
-                buffer.push_str(" WITH (");
-                for (index, element) in iter_only!(options, Node::DefElem).enumerate() {
-                    if index > 0 {
-                        buffer.push_str(", ");
-                    }
-                    let name = must!(element.defname);
-
-                    match &name[..] {
-                        "format" => {
-                            buffer.push_str("FORMAT ");
-                            let format = must!(element.arg);
-                            let format = string_value!(**format);
-                            match &format[..] {
-                                "binary" => buffer.push_str("BINARY"),
-                                "csv" => buffer.push_str("CSV"),
-                                unexpected => {
-                                    return Err(SqlError::Unsupported(format!(
-                                        "Format type: {}",
-                                        unexpected
-                                    )));
-                                }
-                            }
-                        }
-                        "freeze" | "header" => {
-                            let mut use_default_impl = false;
-                            let mut value = None;
-                            if let Some(arg) = &element.arg {
-                                let val = int_value!(**arg).unwrap_or_default();
-                                if val == 1 {
-                                    value = Some(val);
-                                } else {
-                                    use_default_impl = true;
-                                }
-                            }
-
-                            if use_default_impl {
-                                default_option_impl(buffer, element, name)?;
-                            } else {
-                                buffer.push_str(&name.to_uppercase());
-                                if let Some(val) = value {
-                                    buffer.push_str(&format!(" {}", val));
-                                }
-                            }
-                        }
-                        "delimiter" => {
-                            let arg = must!(element.arg);
-                            buffer.push_str("DELIMITER ");
-                            StringLiteral(string_value!(**arg)).build(buffer)?;
-                        }
-                        "null" => {
-                            let arg = must!(element.arg);
-                            buffer.push_str("NULL ");
-                            StringLiteral(string_value!(**arg)).build(buffer)?;
-                        }
-                        "quote" => {
-                            let arg = must!(element.arg);
-                            buffer.push_str("QUOTE ");
-                            StringLiteral(string_value!(**arg)).build(buffer)?;
-                        }
-                        "escape" => {
-                            let arg = must!(element.arg);
-                            buffer.push_str("ESCAPE ");
-                            StringLiteral(string_value!(**arg)).build(buffer)?;
-                        }
-                        "encoding" => {
-                            let arg = must!(element.arg);
-                            buffer.push_str("ENCODING ");
-                            StringLiteral(string_value!(**arg)).build(buffer)?;
-                        }
-                        "force_quote" => {
-                            let arg = must!(element.arg);
-                            buffer.push_str("FORCE_QUOTE ");
-                            match &**arg {
-                                Node::A_Star(a_star) => a_star.build(buffer)?,
-                                Node::List(list) => {
-                                    buffer.push('(');
-                                    ColumnList(&list.items).build(buffer)?;
-                                    buffer.push(')');
-                                }
-                                unexpected => {
-                                    return Err(SqlError::UnexpectedNodeType(unexpected.name()));
-                                }
-                            }
-                        }
-                        "force_not_null" => {
-                            let arg = must!(element.arg);
-                            let list = node!(**arg, Node::List);
-                            buffer.push_str("FORCE_NOT_NULL (");
-                            ColumnList(&list.items).build(buffer)?;
-                            buffer.push(')');
-                        }
-                        "force_null" => {
-                            let arg = must!(element.arg);
-                            let list = node!(**arg, Node::List);
-                            buffer.push_str("FORCE_NULL (");
-                            ColumnList(&list.items).build(buffer)?;
-                            buffer.push(')');
-                        }
-                        other => default_option_impl(buffer, element, other)?,
-                    }
+        if let Some(ref options) = self.options
+            && !options.is_empty()
+        {
+            buffer.push_str(" WITH (");
+            for (index, element) in iter_only!(options, Node::DefElem).enumerate() {
+                if index > 0 {
+                    buffer.push_str(", ");
                 }
-                buffer.push(')');
+                let name = must!(element.defname);
+
+                match &name[..] {
+                    "format" => {
+                        buffer.push_str("FORMAT ");
+                        let format = must!(element.arg);
+                        let format = string_value!(**format);
+                        match &format[..] {
+                            "binary" => buffer.push_str("BINARY"),
+                            "csv" => buffer.push_str("CSV"),
+                            unexpected => {
+                                return Err(SqlError::Unsupported(format!(
+                                    "Format type: {}",
+                                    unexpected
+                                )));
+                            }
+                        }
+                    }
+                    "freeze" | "header" => {
+                        let mut use_default_impl = false;
+                        let mut value = None;
+                        if let Some(arg) = &element.arg {
+                            let val = int_value!(**arg).unwrap_or_default();
+                            if val == 1 {
+                                value = Some(val);
+                            } else {
+                                use_default_impl = true;
+                            }
+                        }
+
+                        if use_default_impl {
+                            default_option_impl(buffer, element, name)?;
+                        } else {
+                            buffer.push_str(&name.to_uppercase());
+                            if let Some(val) = value {
+                                buffer.push_str(&format!(" {}", val));
+                            }
+                        }
+                    }
+                    "delimiter" => {
+                        let arg = must!(element.arg);
+                        buffer.push_str("DELIMITER ");
+                        StringLiteral(string_value!(**arg)).build(buffer)?;
+                    }
+                    "null" => {
+                        let arg = must!(element.arg);
+                        buffer.push_str("NULL ");
+                        StringLiteral(string_value!(**arg)).build(buffer)?;
+                    }
+                    "quote" => {
+                        let arg = must!(element.arg);
+                        buffer.push_str("QUOTE ");
+                        StringLiteral(string_value!(**arg)).build(buffer)?;
+                    }
+                    "escape" => {
+                        let arg = must!(element.arg);
+                        buffer.push_str("ESCAPE ");
+                        StringLiteral(string_value!(**arg)).build(buffer)?;
+                    }
+                    "encoding" => {
+                        let arg = must!(element.arg);
+                        buffer.push_str("ENCODING ");
+                        StringLiteral(string_value!(**arg)).build(buffer)?;
+                    }
+                    "force_quote" => {
+                        let arg = must!(element.arg);
+                        buffer.push_str("FORCE_QUOTE ");
+                        match &**arg {
+                            Node::A_Star(a_star) => a_star.build(buffer)?,
+                            Node::List(list) => {
+                                buffer.push('(');
+                                ColumnList(&list.items).build(buffer)?;
+                                buffer.push(')');
+                            }
+                            unexpected => {
+                                return Err(SqlError::UnexpectedNodeType(unexpected.name()));
+                            }
+                        }
+                    }
+                    "force_not_null" => {
+                        let arg = must!(element.arg);
+                        let list = node!(**arg, Node::List);
+                        buffer.push_str("FORCE_NOT_NULL (");
+                        ColumnList(&list.items).build(buffer)?;
+                        buffer.push(')');
+                    }
+                    "force_null" => {
+                        let arg = must!(element.arg);
+                        let list = node!(**arg, Node::List);
+                        buffer.push_str("FORCE_NULL (");
+                        ColumnList(&list.items).build(buffer)?;
+                        buffer.push(')');
+                    }
+                    other => default_option_impl(buffer, element, other)?,
+                }
             }
+            buffer.push(')');
         }
         if let Some(ref where_clause) = self.where_clause {
             WhereClause(where_clause).build(buffer)?;
@@ -1996,11 +2073,11 @@ impl SqlBuilder for CreateSeqStmt {
             buffer.push_str(" IF NOT EXISTS");
         }
         (**sequence).build_with_context(buffer, Context::None)?;
-        if let Some(ref options) = self.options {
-            if !options.is_empty() {
-                buffer.push(' ');
-                SeqOptList(options).build(buffer)?;
-            }
+        if let Some(ref options) = self.options
+            && !options.is_empty()
+        {
+            buffer.push(' ');
+            SeqOptList(options).build(buffer)?;
         }
         Ok(())
     }
@@ -2036,15 +2113,14 @@ impl SqlBuilderWithContext for CreateStmt {
         }
 
         // Partition
-        if self.partbound.is_some() {
-            if let Some(ref inh) = self.inh_relations {
-                if let Some(Node::RangeVar(range)) = inh.iter().next() {
-                    buffer.push_str(" PARTITION OF ");
-                    range.build_with_context(buffer, Context::None)?;
-                }
-                // else, error?
-            }
+        if self.partbound.is_some()
+            && let Some(ref inh) = self.inh_relations
+            && let Some(Node::RangeVar(range)) = inh.iter().next()
+        {
+            buffer.push_str(" PARTITION OF ");
+            range.build_with_context(buffer, Context::None)?;
         }
+        // else, error?
 
         if let Some(ref table_elements) = self.table_elts {
             if !table_elements.is_empty() {
@@ -2067,12 +2143,12 @@ impl SqlBuilderWithContext for CreateStmt {
         if let Some(ref bound) = self.partbound {
             buffer.push(' ');
             (**bound).build(buffer)?;
-        } else if let Some(ref inh) = self.inh_relations {
-            if !inh.is_empty() {
-                buffer.push_str(" INHERITS (");
-                QualifiedNameList(inh).build(buffer)?;
-                buffer.push(')');
-            }
+        } else if let Some(ref inh) = self.inh_relations
+            && !inh.is_empty()
+        {
+            buffer.push_str(" INHERITS (");
+            QualifiedNameList(inh).build(buffer)?;
+            buffer.push(')');
         }
 
         if let Some(ref spec) = self.partspec {
@@ -2116,11 +2192,11 @@ impl SqlBuilder for CreateTableAsStmt {
 
         buffer.push_str("CREATE");
 
-        if let Some(ref rel) = into.rel {
-            if let Some(persistence) = persistence_from_code(rel.relpersistence) {
-                buffer.push(' ');
-                buffer.push_str(persistence);
-            }
+        if let Some(ref rel) = into.rel
+            && let Some(persistence) = persistence_from_code(rel.relpersistence)
+        {
+            buffer.push(' ');
+            buffer.push_str(persistence);
         }
 
         // Relation kind
@@ -2216,11 +2292,11 @@ impl SqlBuilder for CreateTrigStmt {
             }
             buffer.push_str(" UPDATE");
             require_or = true;
-            if let Some(ref columns) = self.columns {
-                if !columns.is_empty() {
-                    buffer.push_str(" OF");
-                    ColumnList(columns).build(buffer)?;
-                }
+            if let Some(ref columns) = self.columns
+                && !columns.is_empty()
+            {
+                buffer.push_str(" OF");
+                ColumnList(columns).build(buffer)?;
             }
         }
         if self.events & constants::trigger::TRIGGER_TYPE_TRUNCATE > 0 {
@@ -2285,11 +2361,11 @@ impl SqlBuilder for CreatedbStmt {
         let dbname = must!(self.dbname);
         buffer.push_str("CREATE DATABASE ");
         ColId(dbname).build(buffer)?;
-        if let Some(ref options) = self.options {
-            if !options.is_empty() {
-                buffer.push(' ');
-                CreatedbOptList(options).build(buffer)?;
-            }
+        if let Some(ref options) = self.options
+            && !options.is_empty()
+        {
+            buffer.push(' ');
+            CreatedbOptList(options).build(buffer)?;
         }
         Ok(())
     }
@@ -2393,11 +2469,8 @@ impl SqlBuilder for DeleteStmt {
             WhereClause(clause).build(buffer)?;
         }
 
-        if let Some(ref list) = self.returning_list {
-            if !list.is_empty() {
-                buffer.push_str(" RETURNING ");
-                TargetList(list).build(buffer)?;
-            }
+        if let Some(ref clause) = self.returning_clause {
+            clause.build(buffer)?;
         }
 
         Ok(())
@@ -2695,12 +2768,12 @@ impl SqlBuilder for ExecuteStmt {
         let name = must!(self.name);
         buffer.push_str("EXECUTE ");
         buffer.push_str(&quote_identifier(name));
-        if let Some(ref params) = self.params {
-            if !params.is_empty() {
-                buffer.push('(');
-                ExprList(params).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref params) = self.params
+            && !params.is_empty()
+        {
+            buffer.push('(');
+            ExprList(params).build(buffer)?;
+            buffer.push(')');
         }
         Ok(())
     }
@@ -2709,32 +2782,32 @@ impl SqlBuilder for ExecuteStmt {
 impl SqlBuilder for ExplainStmt {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         buffer.push_str("EXPLAIN");
-        if let Some(ref options) = self.options {
-            if !options.is_empty() {
-                buffer.push_str(" (");
-                for (index, element) in iter_only!(options, Node::DefElem).enumerate() {
-                    if index > 0 {
-                        buffer.push_str(", ");
-                    }
-                    GenericDefElemName(must!(element.defname)).build(buffer)?;
-                    if let Some(ref arg) = element.arg {
-                        match &**arg {
-                            Node::Integer { .. } | Node::Float { .. } => {
-                                buffer.push(' ');
-                                NumericOnly(arg).build(buffer)?;
-                            }
-                            Node::String { sval: Some(value) } => {
-                                buffer.push(' ');
-                                BooleanOrString(value).build(buffer)?;
-                            }
-                            unexpected => {
-                                return Err(SqlError::UnexpectedNodeType(unexpected.name()));
-                            }
+        if let Some(ref options) = self.options
+            && !options.is_empty()
+        {
+            buffer.push_str(" (");
+            for (index, element) in iter_only!(options, Node::DefElem).enumerate() {
+                if index > 0 {
+                    buffer.push_str(", ");
+                }
+                GenericDefElemName(must!(element.defname)).build(buffer)?;
+                if let Some(ref arg) = element.arg {
+                    match &**arg {
+                        Node::Integer { .. } | Node::Float { .. } => {
+                            buffer.push(' ');
+                            NumericOnly(arg).build(buffer)?;
+                        }
+                        Node::String { sval: Some(value) } => {
+                            buffer.push(' ');
+                            BooleanOrString(value).build(buffer)?;
+                        }
+                        unexpected => {
+                            return Err(SqlError::UnexpectedNodeType(unexpected.name()));
                         }
                     }
                 }
-                buffer.push(')');
             }
+            buffer.push(')');
         }
 
         // "ExplainableStmt" in gram.y
@@ -2786,21 +2859,21 @@ impl SqlBuilder for FuncCall {
             }
         }
 
-        if let Some(ref agg_order) = self.agg_order {
-            if !self.agg_within_group {
-                buffer.push(' ');
-                SortClause(agg_order).build(buffer)?;
-            }
+        if let Some(ref agg_order) = self.agg_order
+            && !self.agg_within_group
+        {
+            buffer.push(' ');
+            SortClause(agg_order).build(buffer)?;
         }
 
         buffer.push(')');
 
-        if let Some(ref agg_order) = self.agg_order {
-            if self.agg_within_group {
-                buffer.push_str(" WITHIN GROUP (");
-                SortClause(agg_order).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref agg_order) = self.agg_order
+            && self.agg_within_group
+        {
+            buffer.push_str(" WITHIN GROUP (");
+            SortClause(agg_order).build(buffer)?;
+            buffer.push(')');
         }
 
         if let Some(ref filter) = self.agg_filter {
@@ -3107,15 +3180,15 @@ impl SqlBuilder for IndexElem {
             Collate(collation).build(buffer)?;
         }
 
-        if let Some(ref opclass) = self.opclass {
-            if !opclass.is_empty() {
-                buffer.push(' ');
-                AnyName(opclass).build(buffer)?;
-                if let Some(ref opclassopts) = self.opclassopts {
-                    if !opclassopts.is_empty() {
-                        RelOptions(opclassopts).build(buffer)?;
-                    }
-                }
+        if let Some(ref opclass) = self.opclass
+            && !opclass.is_empty()
+        {
+            buffer.push(' ');
+            AnyName(opclass).build(buffer)?;
+            if let Some(ref opclassopts) = self.opclassopts
+                && !opclassopts.is_empty()
+            {
+                RelOptions(opclassopts).build(buffer)?;
             }
         }
 
@@ -3156,11 +3229,11 @@ impl SqlBuilder for IndexStmt {
         }
         buffer.push_str(" ON ");
         (**relation).build_with_context(buffer, Context::None)?;
-        if let Some(ref access_method) = self.access_method {
-            if access_method.ne(constants::DEFAULT_INDEX_TYPE) {
-                buffer.push_str(" USING ");
-                buffer.push_str(&quote_identifier(access_method));
-            }
+        if let Some(ref access_method) = self.access_method
+            && access_method.ne(constants::DEFAULT_INDEX_TYPE)
+        {
+            buffer.push_str(" USING ");
+            buffer.push_str(&quote_identifier(access_method));
         }
         buffer.push_str(" (");
         if let Some(ref parameters) = self.index_params {
@@ -3173,17 +3246,17 @@ impl SqlBuilder for IndexStmt {
         }
         buffer.push(')');
 
-        if let Some(ref parameters) = self.index_including_params {
-            if !parameters.is_empty() {
-                buffer.push_str(" INCLUDE (");
-                for (index, parameter) in iter_only!(parameters, Node::IndexElem).enumerate() {
-                    if index > 0 {
-                        buffer.push_str(", ");
-                    }
-                    parameter.build(buffer)?;
+        if let Some(ref parameters) = self.index_including_params
+            && !parameters.is_empty()
+        {
+            buffer.push_str(" INCLUDE (");
+            for (index, parameter) in iter_only!(parameters, Node::IndexElem).enumerate() {
+                if index > 0 {
+                    buffer.push_str(", ");
                 }
-                buffer.push(')');
+                parameter.build(buffer)?;
             }
+            buffer.push(')');
         }
 
         if let Some(ref options) = self.options {
@@ -3206,17 +3279,17 @@ impl SqlBuilder for IndexStmt {
 
 impl SqlBuilder for InferClause {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
-        if let Some(ref elements) = self.index_elems {
-            if !elements.is_empty() {
-                buffer.push('(');
-                for (index, el) in iter_only!(elements, Node::IndexElem).enumerate() {
-                    if index > 0 {
-                        buffer.push_str(", ");
-                    }
-                    el.build(buffer)?
+        if let Some(ref elements) = self.index_elems
+            && !elements.is_empty()
+        {
+            buffer.push('(');
+            for (index, el) in iter_only!(elements, Node::IndexElem).enumerate() {
+                if index > 0 {
+                    buffer.push_str(", ");
                 }
-                buffer.push(')');
+                el.build(buffer)?
             }
+            buffer.push(')');
         }
 
         if let Some(ref name) = self.conname {
@@ -3250,12 +3323,12 @@ impl SqlBuilder for InsertStmt {
         (**relation).build_with_context(buffer, Context::InsertRelation)?;
 
         // Start the insert columns
-        if let Some(ref cols) = self.cols {
-            if !cols.is_empty() {
-                buffer.push_str(" (");
-                InsertColumnList(cols).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref cols) = self.cols
+            && !cols.is_empty()
+        {
+            buffer.push_str(" (");
+            InsertColumnList(cols).build(buffer)?;
+            buffer.push(')');
         }
 
         // Overrides as necessary
@@ -3279,11 +3352,8 @@ impl SqlBuilder for InsertStmt {
         }
 
         // Returning...
-        if let Some(ref returning) = self.returning_list {
-            if !returning.is_empty() {
-                buffer.push_str(" RETURNING ");
-                TargetList(returning).build(buffer)?;
-            }
+        if let Some(ref clause) = self.returning_clause {
+            clause.build(buffer)?;
         }
 
         Ok(())
@@ -3374,11 +3444,11 @@ impl SqlBuilder for OnConflictClause {
         }
 
         // Target list
-        if let Some(ref list) = self.target_list {
-            if !list.is_empty() {
-                buffer.push_str(" SET ");
-                SetClauseList(list).build(buffer)?;
-            }
+        if let Some(ref list) = self.target_list
+            && !list.is_empty()
+        {
+            buffer.push_str(" SET ");
+            SetClauseList(list).build(buffer)?;
         }
 
         // Where clause
@@ -3521,12 +3591,12 @@ impl SqlBuilder for PrepareStmt {
 
         buffer.push_str("PREPARE ");
         ColId(col_id).build(buffer)?;
-        if let Some(ref argtypes) = self.argtypes {
-            if !argtypes.is_empty() {
-                buffer.push('(');
-                TypeList(argtypes).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref argtypes) = self.argtypes
+            && !argtypes.is_empty()
+        {
+            buffer.push('(');
+            TypeList(argtypes).build(buffer)?;
+            buffer.push(')');
         }
         buffer.push_str(" AS ");
         PreparableStmt(query).build(buffer)?;
@@ -3582,10 +3652,10 @@ impl SqlBuilder for RangeFunction {
             buffer.push(')');
         } else if let Some(ref func) = self.functions {
             // Consider error cases when we're not getting what we want
-            if let Some(Node::List(list)) = func.first() {
-                if let Some(func) = list.items.first() {
-                    func.build(buffer)?;
-                }
+            if let Some(Node::List(list)) = func.first()
+                && let Some(func) = list.items.first()
+            {
+                func.build(buffer)?;
             }
         }
         if self.ordinality {
@@ -4018,10 +4088,10 @@ impl SqlBuilder for SelectStmt {
                         buffer.push(' ');
                     }
                     buffer.push_str("INTO ");
-                    if let Some(ref rel) = into.rel {
-                        if let Some(persistence) = persistence_from_code(rel.relpersistence) {
-                            buffer.push_str(&format!("{} ", persistence));
-                        }
+                    if let Some(ref rel) = into.rel
+                        && let Some(persistence) = persistence_from_code(rel.relpersistence)
+                    {
+                        buffer.push_str(&format!("{} ", persistence));
                     }
 
                     // Generate the into
@@ -4077,10 +4147,10 @@ impl SqlBuilder for SelectStmt {
                 let right = must!(self.rarg);
 
                 fn need_parenthesis(stmt: &SelectStmt) -> bool {
-                    if let Some(ref sort) = stmt.sort_clause {
-                        if !sort.is_empty() {
-                            return true;
-                        }
+                    if let Some(ref sort) = stmt.sort_clause
+                        && !sort.is_empty()
+                    {
+                        return true;
                     }
                     if stmt.limit_offset.is_some()
                         || stmt.limit_count.is_some()
@@ -4088,10 +4158,10 @@ impl SqlBuilder for SelectStmt {
                     {
                         return true;
                     }
-                    if let Some(ref lock) = stmt.locking_clause {
-                        if !lock.is_empty() {
-                            return true;
-                        }
+                    if let Some(ref lock) = stmt.locking_clause
+                        && !lock.is_empty()
+                    {
+                        return true;
                     }
                     (*stmt.op).ne(&SetOperation::SETOP_NONE)
                 }
@@ -4498,16 +4568,14 @@ impl SqlBuilder for TypeName {
                         }
                     }
 
-                    if let Some(ref mods) = self.typmods {
-                        if mods.len() == 2 {
-                            let value = *const_integer!(mods[1]);
-                            if value != constants::interval::FULL_PRECISION {
-                                buffer.push_str(&format!("({})", value))
-                            } else {
-                                return Err(SqlError::Unsupported(
-                                    "FULL_PRECISION for typmods".into(),
-                                ));
-                            }
+                    if let Some(ref mods) = self.typmods
+                        && mods.len() == 2
+                    {
+                        let value = *const_integer!(mods[1]);
+                        if value != constants::interval::FULL_PRECISION {
+                            buffer.push_str(&format!("({})", value))
+                        } else {
+                            return Err(SqlError::Unsupported("FULL_PRECISION for typmods".into()));
                         }
                     }
 
@@ -4572,11 +4640,11 @@ impl SqlBuilder for UpdateStmt {
         (**relation).build_with_context(buffer, Context::None)?;
 
         // Start the target list
-        if let Some(ref list) = self.target_list {
-            if !list.is_empty() {
-                buffer.push_str(" SET ");
-                SetClauseList(list).build(buffer)?;
-            }
+        if let Some(ref list) = self.target_list
+            && !list.is_empty()
+        {
+            buffer.push_str(" SET ");
+            SetClauseList(list).build(buffer)?;
         }
 
         if let Some(ref from) = self.from_clause {
@@ -4588,11 +4656,8 @@ impl SqlBuilder for UpdateStmt {
             WhereClause(clause).build(buffer)?;
         }
 
-        if let Some(ref returning) = self.returning_list {
-            if !returning.is_empty() {
-                buffer.push_str(" RETURNING ");
-                TargetList(returning).build(buffer)?;
-            }
+        if let Some(ref clause) = self.returning_clause {
+            clause.build(buffer)?;
         }
 
         Ok(())
@@ -4607,31 +4672,31 @@ impl SqlBuilder for VacuumStmt {
             buffer.push_str("ANALYZE");
         }
 
-        if let Some(ref options) = self.options {
-            if !options.is_empty() {
-                buffer.push_str(" (");
-                for (index, option) in iter_only!(options, Node::DefElem).enumerate() {
-                    if index > 0 {
-                        buffer.push_str(", ");
-                    }
-                    GenericDefElemName(must!(option.defname)).build(buffer)?;
-                    if let Some(ref arg) = option.arg {
-                        buffer.push(' ');
-                        match &**arg {
-                            Node::Integer { .. } | Node::Float { .. } => {
-                                NumericOnly(arg).build(buffer)?
-                            }
-                            Node::String { sval: Some(value) } => {
-                                BooleanOrString(value).build(buffer)?
-                            }
-                            unexpected => {
-                                return Err(SqlError::UnexpectedNodeType(unexpected.name()));
-                            }
+        if let Some(ref options) = self.options
+            && !options.is_empty()
+        {
+            buffer.push_str(" (");
+            for (index, option) in iter_only!(options, Node::DefElem).enumerate() {
+                if index > 0 {
+                    buffer.push_str(", ");
+                }
+                GenericDefElemName(must!(option.defname)).build(buffer)?;
+                if let Some(ref arg) = option.arg {
+                    buffer.push(' ');
+                    match &**arg {
+                        Node::Integer { .. } | Node::Float { .. } => {
+                            NumericOnly(arg).build(buffer)?
+                        }
+                        Node::String { sval: Some(value) } => {
+                            BooleanOrString(value).build(buffer)?
+                        }
+                        unexpected => {
+                            return Err(SqlError::UnexpectedNodeType(unexpected.name()));
                         }
                     }
                 }
-                buffer.push(')');
             }
+            buffer.push(')');
         }
 
         if let Some(ref rels) = self.rels {
@@ -4642,17 +4707,17 @@ impl SqlBuilder for VacuumStmt {
                     buffer.push(' ');
                 }
                 must!(rel.relation).build_with_context(buffer, Context::None)?;
-                if let Some(ref cols) = rel.va_cols {
-                    if !cols.is_empty() {
-                        buffer.push('(');
-                        for (sub_index, col) in cols.iter().enumerate() {
-                            if sub_index > 0 {
-                                buffer.push_str(", ");
-                            }
-                            buffer.push_str(&quote_identifier(string_value!(col)));
+                if let Some(ref cols) = rel.va_cols
+                    && !cols.is_empty()
+                {
+                    buffer.push('(');
+                    for (sub_index, col) in cols.iter().enumerate() {
+                        if sub_index > 0 {
+                            buffer.push_str(", ");
                         }
-                        buffer.push(')');
+                        buffer.push_str(&quote_identifier(string_value!(col)));
                     }
+                    buffer.push(')');
                 }
             }
         }
@@ -4758,12 +4823,12 @@ impl SqlBuilder for ViewStmt {
         (**view).build_with_context(buffer, Context::None)?;
 
         // Aliases
-        if let Some(ref aliases) = self.aliases {
-            if !aliases.is_empty() {
-                buffer.push_str(" (");
-                ColumnList(aliases).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref aliases) = self.aliases
+            && !aliases.is_empty()
+        {
+            buffer.push_str(" (");
+            ColumnList(aliases).build(buffer)?;
+            buffer.push(')');
         }
 
         if let Some(ref options) = self.options {
@@ -4798,14 +4863,14 @@ impl SqlBuilder for WindowDef {
             buffer.push_str(&quote_identifier(ref_name));
         }
 
-        if let Some(ref partition) = self.partition_clause {
-            if !partition.is_empty() {
-                if !buffer.ends_with('(') && !buffer.ends_with(' ') {
-                    buffer.push(' ');
-                }
-                buffer.push_str("PARTITION BY ");
-                ExprList(partition).build(buffer)?;
+        if let Some(ref partition) = self.partition_clause
+            && !partition.is_empty()
+        {
+            if !buffer.ends_with('(') && !buffer.ends_with(' ') {
+                buffer.push(' ');
             }
+            buffer.push_str("PARTITION BY ");
+            ExprList(partition).build(buffer)?;
         }
 
         if let Some(ref sort) = self.order_clause {
@@ -4932,12 +4997,12 @@ impl SqlBuilder for Alias {
         buffer.push_str(&quote_identifier(name));
 
         // Also process the column names
-        if let Some(ref columns) = self.colnames {
-            if !columns.is_empty() {
-                buffer.push('(');
-                NameList(columns).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref columns) = self.colnames
+            && !columns.is_empty()
+        {
+            buffer.push('(');
+            NameList(columns).build(buffer)?;
+            buffer.push(')');
         }
         Ok(())
     }
@@ -5089,12 +5154,12 @@ impl SqlBuilder for IntoClause {
         // Start with the target relation name
         (**rel).build_with_context(buffer, Context::None)?;
 
-        if let Some(ref column_names) = self.col_names {
-            if !column_names.is_empty() {
-                buffer.push('(');
-                ColumnList(column_names).build(buffer)?;
-                buffer.push(')');
-            }
+        if let Some(ref column_names) = self.col_names
+            && !column_names.is_empty()
+        {
+            buffer.push('(');
+            ColumnList(column_names).build(buffer)?;
+            buffer.push(')');
         }
 
         // Access method
@@ -5166,6 +5231,7 @@ impl SqlBuilder for JoinExpr {
             JoinType::JOIN_UNIQUE_OUTER => {}
             JoinType::JOIN_UNIQUE_INNER => {}
             JoinType::JOIN_RIGHT_ANTI => {}
+            JoinType::JOIN_RIGHT_SEMI => {}
         }
         buffer.push_str("JOIN ");
 
@@ -5428,17 +5494,14 @@ impl SqlBuilder for XmlExpr {
                     XmlOptionType::XMLOPTION_CONTENT => buffer.push_str("content "),
                 }
                 Expr(&args[0]).build(buffer)?;
-                if let Node::TypeCast(ref tc) = args[1] {
-                    if let Some(ref inner) = tc.arg {
-                        if let Node::Boolean {
-                            boolval: Some(value),
-                        } = **inner
-                        {
-                            if value {
-                                buffer.push_str(" PRESERVE WHITESPACE");
-                            }
-                        }
-                    }
+                if let Node::TypeCast(ref tc) = args[1]
+                    && let Some(ref inner) = tc.arg
+                    && let Node::Boolean {
+                        boolval: Some(value),
+                    } = **inner
+                    && value
+                {
+                    buffer.push_str(" PRESERVE WHITESPACE");
                 }
                 buffer.push(')');
             }
@@ -5447,12 +5510,12 @@ impl SqlBuilder for XmlExpr {
                 if let Some(ref name) = self.name {
                     buffer.push_str(&quote_identifier(name));
                 }
-                if let Some(ref args) = self.args {
-                    if !args.is_empty() {
-                        // Just one arg to push?
-                        buffer.push_str(", ");
-                        Expr(&args[0]).build(buffer)?;
-                    }
+                if let Some(ref args) = self.args
+                    && !args.is_empty()
+                {
+                    // Just one arg to push?
+                    buffer.push_str(", ");
+                    Expr(&args[0]).build(buffer)?;
                 }
                 buffer.push(')');
             }

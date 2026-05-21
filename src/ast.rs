@@ -93,6 +93,7 @@ pub(crate) mod constants {
     pub const ATTRIBUTE_IDENTITY_ALWAYS: char = 'a';
     pub const ATTRIBUTE_IDENTITY_BY_DEFAULT: char = 'd';
     pub const ATTRIBUTE_GENERATED_STORED: char = 's';
+    pub const ATTRIBUTE_GENERATED_VIRTUAL: char = 'v';
 
     pub const DEFAULT_INDEX_TYPE: &str = "btree";
 

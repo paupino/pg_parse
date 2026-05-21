@@ -467,42 +467,41 @@ pub(in crate::str) struct SubqueryOperator<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for SubqueryOperator<'_> {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let list = self.0;
-        if list.len() == 1 {
-            if let Node::String {
+        if list.len() == 1
+            && let Node::String {
                 sval: Some(ref value),
             } = list[0]
-            {
-                let handled = match &value[..] {
-                    "~~" => {
-                        buffer.push_str("LIKE");
-                        true
-                    }
-                    "!~~" => {
-                        buffer.push_str("NOT LIKE");
-                        true
-                    }
-                    "~~*" => {
-                        buffer.push_str("ILIKE");
-                        true
-                    }
-                    "!~~*" => {
-                        buffer.push_str("NOT ILIKE");
-                        true
-                    }
-                    op => {
-                        if is_operator(op) {
-                            buffer.push_str(op);
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                };
-
-                // If it's handled then exit out
-                if handled {
-                    return Ok(());
+        {
+            let handled = match &value[..] {
+                "~~" => {
+                    buffer.push_str("LIKE");
+                    true
                 }
+                "!~~" => {
+                    buffer.push_str("NOT LIKE");
+                    true
+                }
+                "~~*" => {
+                    buffer.push_str("ILIKE");
+                    true
+                }
+                "!~~*" => {
+                    buffer.push_str("NOT ILIKE");
+                    true
+                }
+                op => {
+                    if is_operator(op) {
+                        buffer.push_str(op);
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            // If it's handled then exit out
+            if handled {
+                return Ok(());
             }
         }
 
@@ -518,16 +517,14 @@ pub(in crate::str) struct QualifiedOperator<'a>(pub &'a Vec<Node>);
 impl SqlBuilder for QualifiedOperator<'_> {
     fn build(&self, buffer: &mut String) -> Result<(), SqlError> {
         let list = self.0;
-        if list.len() == 1 {
-            if let Node::String {
+        if list.len() == 1
+            && let Node::String {
                 sval: Some(ref value),
             } = list[0]
-            {
-                if is_operator(value) {
-                    buffer.push_str(value);
-                    return Ok(());
-                }
-            }
+            && is_operator(value)
+        {
+            buffer.push_str(value);
+            return Ok(());
         }
 
         buffer.push_str("OPERATOR(");
@@ -1360,11 +1357,11 @@ impl SqlBuilder for AggrArgs<'_> {
 
             // Repeat the last direct arg as a ordered arg to handle the
             // simplification done by makeOrderedSetArgs in gram.y
-            if order_by_pos == args.items.len() {
-                if let Some(item) = args.items.last() {
-                    buffer.push_str(" ORDER BY ");
-                    node!(item, Node::FunctionParameter).build(buffer)?;
-                }
+            if order_by_pos == args.items.len()
+                && let Some(item) = args.items.last()
+            {
+                buffer.push_str(" ORDER BY ");
+                node!(item, Node::FunctionParameter).build(buffer)?;
             }
         } else {
             buffer.push('*');

@@ -340,6 +340,55 @@ mod tests {
     }
 
     #[test]
+    fn it_correctly_converts_to_string_for_check_enforcement_tests() {
+        // PG18 introduced `[NOT] ENFORCED` as a trailing attribute on CHECK constraints.
+        // libpg_query represents the attribute as a sibling Constraint with contype
+        // CONSTR_ATTR_ENFORCED or CONSTR_ATTR_NOT_ENFORCED.
+        let tests = [
+            "CREATE TABLE t (x int CHECK (x > 0) NOT ENFORCED)",
+            "CREATE TABLE t (x int CHECK (x > 0) ENFORCED)",
+        ];
+        execute_tests(tests)
+    }
+
+    #[test]
+    fn it_correctly_converts_to_string_for_virtual_generated_columns() {
+        // PG18 added virtual generated columns alongside the existing STORED kind.
+        let tests = [
+            "CREATE TABLE t (x int, y int GENERATED ALWAYS AS (x * 2) VIRTUAL)",
+            "CREATE TABLE t (x int, y int GENERATED ALWAYS AS (x * 2) STORED)",
+        ];
+        execute_tests(tests)
+    }
+
+    #[test]
+    fn it_correctly_converts_to_string_for_returning_with_old_new_tests() {
+        // PG18 introduced RETURNING WITH (OLD AS ..., NEW AS ...) for INSERT/UPDATE/DELETE.
+        let tests = [
+            "INSERT INTO t (x) VALUES (1) RETURNING WITH (OLD AS o, NEW AS n) o.x, n.x",
+            "INSERT INTO t (x) VALUES (1) RETURNING WITH (NEW AS n) n.x",
+            "UPDATE t SET x = 2 RETURNING WITH (OLD AS o) o.x",
+            "DELETE FROM t WHERE x = 1 RETURNING WITH (OLD AS o) o.x",
+        ];
+        execute_tests(tests)
+    }
+
+    #[test]
+    fn it_correctly_converts_to_string_for_alter_constraint_tests() {
+        // PG18 expanded ALTER TABLE ... ALTER CONSTRAINT to toggle enforceability,
+        // deferrability, and inheritability via the new ATAlterConstraint node.
+        let tests = [
+            "ALTER TABLE t ALTER CONSTRAINT c NOT ENFORCED",
+            "ALTER TABLE t ALTER CONSTRAINT c ENFORCED",
+            "ALTER TABLE t ALTER CONSTRAINT c DEFERRABLE",
+            "ALTER TABLE t ALTER CONSTRAINT c DEFERRABLE INITIALLY DEFERRED",
+            "ALTER TABLE t ALTER CONSTRAINT c INHERIT",
+            "ALTER TABLE t ALTER CONSTRAINT c NO INHERIT",
+        ];
+        execute_tests(tests)
+    }
+
+    #[test]
     fn it_correctly_converts_to_string_for_create_view_tests() {
         let tests = [
             "CREATE OR REPLACE TEMPORARY VIEW view_a AS SELECT * FROM a(1) WITH CHECK OPTION",

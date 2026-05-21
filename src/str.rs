@@ -61,7 +61,12 @@ impl fmt::Display for Node {
             Err(err) => {
                 #[cfg(debug_assertions)]
                 {
-                    eprintln!("Error generating SQL: {}", err);
+                    // Debug-only diagnostic to help track down builder bugs; in release builds
+                    // the failure is silently reported back as fmt::Error.
+                    #[allow(clippy::print_in_format_impl)]
+                    {
+                        eprintln!("Error generating SQL: {}", err);
+                    }
                 }
                 Err(fmt::Error)
             }
@@ -343,7 +348,6 @@ impl SqlBuilder for Node {
             Node::JsonTableColumn(arg) => unsupported!(arg),
             Node::JsonTablePathSpec(arg) => unsupported!(arg),
             Node::RTEPermissionInfo(arg) => unsupported!(arg),
-            Node::SinglePartitionSpec(arg) => unsupported!(arg),
             Node::JsonBehavior(arg) => unsupported!(arg),
             Node::JsonConstructorExpr(arg) => unsupported!(arg),
             Node::JsonExpr(arg) => unsupported!(arg),
@@ -357,6 +361,10 @@ impl SqlBuilder for Node {
             Node::JsonValueExpr(arg) => unsupported!(arg),
             Node::MergeSupportFunc(arg) => unsupported!(arg),
             Node::WindowFuncRunCondition(arg) => unsupported!(arg),
+            Node::ATAlterConstraint(arg) => unsupported!(arg),
+            Node::ReturningClause(arg) => unsupported!(arg),
+            Node::ReturningOption(arg) => unsupported!(arg),
+            Node::ReturningExpr(arg) => unsupported!(arg),
         }
         Ok(())
     }

@@ -3,7 +3,7 @@ fn it_can_fingerprint_a_simple_statement() {
     let result = pg_parse::fingerprint("SELECT * FROM contacts.person WHERE id IN (1, 2, 3, 4);");
     assert!(result.is_ok());
     let result = result.unwrap();
-    assert_eq!(result.hex, "643d2a3c294ab8a7");
+    assert_eq!(result.hex, "5735f5c64dd9f68e");
 }
 
 #[test]

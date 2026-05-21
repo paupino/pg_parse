@@ -1,3 +1,32 @@
+# Version 0.14
+
+**This release upgrades `libpg_query` so contains breaking changes.**
+
+Modified:
+
+* Updated `libpg_query` to [18.0.0](https://github.com/pganalyze/libpg_query/releases/tag/18.0.0). This bumps the embedded
+  Postgres version to 18. Several AST changes are introduced:
+  * `Node::SinglePartitionSpec` was removed.
+  * `Node::ATAlterConstraint`, `Node::ReturningClause`, `Node::ReturningOption`, and `Node::ReturningExpr` were added.
+  * `AlterTableType::AT_CheckNotNull` was removed.
+  * `ConstrType::CONSTR_ATTR_ENFORCED` and `ConstrType::CONSTR_ATTR_NOT_ENFORCED` were added.
+  * `JoinType::JOIN_RIGHT_SEMI` was added.
+  * `InsertStmt`, `UpdateStmt`, and `DeleteStmt` now expose `returning_clause: Option<ReturningClause>` instead of a flat
+    `returning_list: Option<Vec<Node>>`. The list of returned expressions now lives at `returning_clause.exprs`.
+  * `A_Expr` gained `rexpr_list_start` and `rexpr_list_end` fields.
+  * `Constraint` gained `is_enforced`, `generated_kind`, `without_overlaps`, `fk_with_period`, and `pk_with_period`;
+    the `inhcount` field was removed.
+  * `CreateStmt` gained an `nnconstraints` field.
+  * `VariableSetStmt` gained `jumble_args` and `location` fields.
+  * Fingerprints have changed for some queries to align with Postgres 18.
+* `build.rs` now generates the `CompareType` enum from the new `access/cmptype` section.
+* The `str` feature now round-trips the new PG18 syntax:
+  * `CHECK (...) [NOT] ENFORCED` column constraints.
+  * Virtual generated columns (`GENERATED ALWAYS AS (...) VIRTUAL`).
+  * `RETURNING WITH (OLD AS ..., NEW AS ...)` on `INSERT`/`UPDATE`/`DELETE`.
+  * `ALTER TABLE ... ALTER CONSTRAINT c [NOT] ENFORCED | [NOT] DEFERRABLE [INITIALLY DEFERRED] | [NO] INHERIT`
+    via the new `ATAlterConstraint` node.
+
 # Version 0.13
 
 Modified:
