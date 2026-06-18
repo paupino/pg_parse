@@ -12,6 +12,9 @@ fn it_will_error_on_invalid_input() {
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),
-        pg_parse::Error::ParseError("syntax error at or near \"RANDOM\"".into())
+        pg_parse::Error::ParseError {
+            message: "syntax error at or near \"RANDOM\"".into(),
+            cursorpos: 8,
+        }
     );
 }

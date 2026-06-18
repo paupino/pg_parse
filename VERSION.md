@@ -1,3 +1,16 @@
+# Version 0.15
+
+**This release contains a breaking change to the `Error` enum.**
+
+Modified:
+
+* `Error::ParseError` is now a struct variant carrying both the message and the location of the error:
+  `Error::ParseError { message: String, cursorpos: i32 }` (previously `Error::ParseError(String)`). The `cursorpos`
+  value is libpg_query's error cursor: a **1-based character (code point) offset** into the query (not a byte offset);
+  for an unexpected end of input it points one past the last character (character length + 1). See the rustdoc on the
+  variant for converting it to a 0-based byte offset for caret/source-span diagnostics. The `Display` output is
+  unchanged (it still prints only the message), so consumers matching on the formatted string are unaffected.
+
 # Version 0.14
 
 **This release upgrades `libpg_query` so contains breaking changes.**
