@@ -47,8 +47,9 @@ pub fn parse(stmt: &str) -> Result<Vec<crate::ast::Node>> {
         if !result.error.is_null() {
             let error = &*result.error;
             let message = CStr::from_ptr(error.message).to_string_lossy().into();
+            let cursorpos = error.cursorpos;
             pg_query_free_parse_result(result);
-            return Err(Error::ParseError(message));
+            return Err(Error::ParseError { message, cursorpos });
         }
 
         // Parse the JSON into the AST
@@ -84,8 +85,9 @@ pub fn parse_debug(stmt: &str) -> Result<(Vec<crate::ast::Node>, String)> {
         if !result.error.is_null() {
             let error = &*result.error;
             let message = CStr::from_ptr(error.message).to_string_lossy().into();
+            let cursorpos = error.cursorpos;
             pg_query_free_parse_result(result);
-            return Err(Error::ParseError(message));
+            return Err(Error::ParseError { message, cursorpos });
         }
 
         // Parse the JSON into the AST
@@ -117,8 +119,9 @@ pub fn normalize(stmt: &str) -> Result<String> {
         if !result.error.is_null() {
             let error = &*result.error;
             let message = CStr::from_ptr(error.message).to_string_lossy().into();
+            let cursorpos = error.cursorpos;
             pg_query_free_normalize_result(result);
-            return Err(Error::ParseError(message));
+            return Err(Error::ParseError { message, cursorpos });
         }
 
         // Parse the query back
@@ -149,8 +152,9 @@ pub fn fingerprint(stmt: &str) -> Result<Fingerprint> {
         if !result.error.is_null() {
             let error = &*result.error;
             let message = CStr::from_ptr(error.message).to_string_lossy().into();
+            let cursorpos = error.cursorpos;
             pg_query_free_fingerprint_result(result);
-            return Err(Error::ParseError(message));
+            return Err(Error::ParseError { message, cursorpos });
         }
 
         // Parse the fingerprint
@@ -192,8 +196,9 @@ pub fn parse_plpgsql(stmt: &str) -> Result<serde_json::Value> {
         if !result.error.is_null() {
             let error = &*result.error;
             let message = CStr::from_ptr(error.message).to_string_lossy().into();
+            let cursorpos = error.cursorpos;
             pg_query_free_plpgsql_parse_result(result);
-            return Err(Error::ParseError(message));
+            return Err(Error::ParseError { message, cursorpos });
         }
 
         // Parse the pglpsql tree
